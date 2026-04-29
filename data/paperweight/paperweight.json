@@ -876,5 +876,35 @@
     "comments": [
       "Rituals directs rights requests to the service.rituals.com portal; under GDPR you can also email privacy@rituals.com directly."
     ]
+  },
+  {
+    "slug": "carnival",
+    "relevant-countries": [
+      "us"
+    ],
+    "name": "Carnival",
+    "runs": [
+      "Carnival Cruise Line",
+      "Holland America Line",
+      "Princess Cruises",
+      "Cunard",
+      "Seabourn",
+      "Costa Cruises",
+      "P&O Cruises",
+      "AIDA Cruises"
+    ],
+    "categories": [
+      "entertainment"
+    ],
+    "address": "Carnival Privacy Office, attn: Data Protection Officer, 3655 NW 87th Avenue, Miami, FL 33178-2418, USA",
+    "web": "https://www.carnivalcorp.com",
+    "webform": "https://www.carnival.com/about-carnival/legal-notice/privacy-notice",
+    "email": "privacy@carnival.com",
+    "phone": "1-800-764-7419",
+    "suggested-transport-medium": "email",
+    "quality": "verified",
+    "comments": [
+      "Carnival Corporation umbrella covers Carnival Cruise Line, Holland America, Princess, Cunard, Seabourn, Costa, P&O and AIDA. Holland America publishes its own privacy contact at Privacy@hollandamerica.com for Mariner Society / HAL guests. EEA/UK customers can use Privacy@CarnivalUKGroup.com (Carnival UK Office, 100 Harbour Parade, Southampton SO15 1ST). DSAR webform: https://dsrguest-privacy.carnival.com/PrivacyRequest/."
+    ]
   }
 ]
