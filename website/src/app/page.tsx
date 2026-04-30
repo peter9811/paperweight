@@ -197,36 +197,56 @@ export default async function Home() {
 
           <div className="max-w-2xl mx-auto mb-4">
             <div className="grid gap-4 sm:grid-cols-3">
-              <Link
+              <a
                 href={`${SITE_CONFIG.GITHUB_URL}/releases/download/v${latestVersion}/Paperweight-${latestVersion}.exe`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn btn-soft btn-lg w-full plausible-event-name=Download+Windows"
               >
                 Windows
-              </Link>
-              <Link
+              </a>
+              <a
                 href={`${SITE_CONFIG.GITHUB_URL}/releases/download/v${latestVersion}/Paperweight-${latestVersion}.dmg`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="btn btn-soft btn-lg w-full plausible-event-name=Download+macOS"
               >
                 macOS
-              </Link>
+              </a>
 
               <div className="w-full">
-                <Link
+                <a
                   href={`${SITE_CONFIG.GITHUB_URL}/releases/download/v${latestVersion}/Paperweight-${latestVersion}.AppImage`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="btn btn-soft btn-lg w-full plausible-event-name=Download+Linux"
                 >
                   Linux
-                </Link>
+                </a>
                 <br />
-                <Link
+                <a
                   href={`${SITE_CONFIG.GITHUB_URL}/releases/download/v${latestVersion}/Paperweight-${latestVersion}.deb`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="link text-sm plausible-event-name=Download+Linux+deb"
                 >
                   or <span className="font-bold">.deb</span> package
-                </Link>
+                </a>
               </div>
             </div>
           </div>
+          <p className="text-sm opacity-70">
+            If download does not start, get the latest release from{" "}
+            <a
+              href={`${SITE_CONFIG.GITHUB_URL}/releases`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link"
+            >
+              GitHub Releases
+            </a>
+            .
+          </p>
 
           {/* Installation notes */}
           <div className="collapse collapse-arrow bg-base-200 rounded-lg border border-base-300 my-8 text-left max-w-2xl mx-auto">
