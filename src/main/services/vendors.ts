@@ -19,10 +19,11 @@ import { dbLog } from "../utils/log";
 
 function toVendor(raw: Record<string, unknown>): Vendor {
   return {
-    ...(raw as Omit<Vendor, "has_marketing" | "has_account" | "has_rfc8058" | "has_orders" | "risk_level">),
+    ...(raw as Omit<Vendor, "has_marketing" | "has_account" | "has_rfc8058" | "has_mailto_unsub" | "has_orders" | "risk_level">),
     has_marketing: !!raw.has_marketing,
     has_account: !!raw.has_account,
     has_rfc8058: !!raw.has_rfc8058,
+    has_mailto_unsub: !!raw.has_mailto_unsub,
     has_orders: !!raw.has_orders,
     risk_level: ((raw.computed_risk ?? raw.risk_level) as RiskLevel | undefined),
   };
@@ -731,6 +732,13 @@ export function queryVendors(
             AND m.unsubscribe_method = 'rfc8058'
           LIMIT 1
         ), 0) AS has_rfc8058,
+        COALESCE((
+          SELECT 1 FROM messages m
+          WHERE m.vendor_id = vendors.id
+            AND m.unsubscribe_method = 'list-unsubscribe'
+            AND m.unsubscribe_url LIKE 'mailto:%'
+          LIMIT 1
+        ), 0) AS has_mailto_unsub,
         COALESCE((
           SELECT 1 FROM messages m WHERE m.vendor_id = vendors.id AND m.type = 'order' LIMIT 1
         ), 0) AS has_orders,

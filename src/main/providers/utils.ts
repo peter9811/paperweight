@@ -280,3 +280,27 @@ export function cleanHtml(html: string | undefined)
     .replace(/\s+/g, " ")
     .trim();
 }
+// Build a minimal RFC 5322 message. Date/Message-ID are intentionally omitted —
+// Gmail's messages.send adds them server-side. Headers are RFC 2047 encoded
+// when they contain non-ASCII (e.g. "Désinscrire"). Body uses 8bit transfer
+// encoding when non-ASCII; receivers supporting 8BITMIME (effectively all
+// modern hosts) accept this. Subject and body must already be UTF-8 strings.
+export function buildRfc822Message(from: string, to: string, subject: string, body: string): string {
+  const isAscii = (s: string): boolean => /^[\x00-\x7F]*$/.test(s);
+  const encodeHeader = (s: string): string =>
+    isAscii(s) ? s : `=?UTF-8?B?${Buffer.from(s, "utf-8").toString("base64")}?=`;
+
+  const transferEncoding = isAscii(body) ? "7bit" : "8bit";
+
+  const lines = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${encodeHeader(subject)}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    `Content-Transfer-Encoding: ${transferEncoding}`,
+    "",
+    body,
+  ];
+  return lines.join("\r\n");
+}

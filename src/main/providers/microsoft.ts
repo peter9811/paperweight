@@ -511,6 +511,29 @@ export function createMicrosoftProvider(): EmailProvider {
       await graphPatch(`${GRAPH_ME_BASE}/messages/${messageId}`, { isRead });
     },
 
+    async sendEmail(to: string, subject: string, body: string): Promise<void> {
+      const token = await getValidAccessToken();
+      const response = await fetch(`${GRAPH_ME_BASE}/sendMail`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            subject,
+            body: { contentType: "Text", content: body },
+            toRecipients: [{ emailAddress: { address: to } }],
+          },
+          saveToSentItems: true,
+        }),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Graph sendMail failed (${response.status}): ${text}`);
+      }
+    },
+
     // --- Checkpoint sync (Graph Delta Query) ---
     //
     // Checkpoint is the full @odata.deltaLink URL returned by the Graph delta endpoint.

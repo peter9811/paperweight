@@ -22,7 +22,7 @@ import {
   buildAccessEmail,
 } from "@shared/gdpr/templates";
 import { RISK_CATEGORIES, RISK_LEVELS } from "@shared/languages";
-import { getRootDomain } from "@shared/utils";
+import { getRootDomain, parseMailto, PAPERWEIGHT_UNSUB_BODY } from "@shared/utils";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -107,7 +107,7 @@ function methodDescription(method: string, url: string): string {
     return "Automatically send an unsubscribe request.";
   }
   if (url.startsWith("mailto:")) {
-    return "Opens your email client with a pre-filled unsubscribe message.";
+    return "Sends an unsubscribe email from your account.";
   }
   return "Opens the unsubscribe page in your browser.";
 }
@@ -127,8 +127,8 @@ function unsubDescription(
   if (entry.url.startsWith("mailto:")) {
     return (
       <>
-        Your email client will open with a pre-filled unsubscribe request to{" "}
-        <strong>{vendorName}</strong>. Send the email to complete.
+        Paperweight will send an unsubscribe email from your account to{" "}
+        <strong>{vendorName}</strong>.
       </>
     );
   }
@@ -256,6 +256,7 @@ export default function AccountDetail(): JSX.Element {
     kind: "success" | "failure";
     fallbackMethods: UnsubscribeEntry[];
     trashAlso: boolean;
+    errorMessage?: string;
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
@@ -609,6 +610,29 @@ export default function AccountDetail(): JSX.Element {
             kind: "failure",
             fallbackMethods,
             trashAlso: true,
+            errorMessage: result.error,
+          });
+        }
+      } else if (entry.url.startsWith("mailto:")) {
+        const { to, subject, body } = parseMailto(entry.url);
+        const fallbackMethods = unsubMethods.filter((m) => m.url !== entry.url);
+        const result = await window.api.sendEmail(to, subject, body || PAPERWEIGHT_UNSUB_BODY);
+        setPendingUnsub(null);
+        if (result.success) {
+          await window.api.markVendorUnsubscribed(vendorId);
+          setUnsubResult({
+            entry,
+            kind: "success",
+            fallbackMethods: [],
+            trashAlso: true,
+          });
+        } else {
+          setUnsubResult({
+            entry,
+            kind: "failure",
+            fallbackMethods,
+            trashAlso: true,
+            errorMessage: result.error,
           });
         }
       } else {
@@ -655,13 +679,33 @@ export default function AccountDetail(): JSX.Element {
   const handleUnsubResultFallback = async (
     fallbackEntry: UnsubscribeEntry,
   ): Promise<void> => {
-    if (!unsubResult) return;
+    if (!unsubResult || !detail) return;
     const { entry } = unsubResult;
     setActionLoading(true);
     try {
-      await window.api.openExternal(fallbackEntry.url);
-      setUnsubResult(null);
-      setUnsubCheck({ entry, trashAlso: true });
+      if (fallbackEntry.url.startsWith("mailto:")) {
+        const { to, subject, body } = parseMailto(fallbackEntry.url);
+        const result = await window.api.sendEmail(to, subject, body || PAPERWEIGHT_UNSUB_BODY);
+        if (result.success) {
+          await window.api.markVendorUnsubscribed(detail.vendor.id);
+          setUnsubResult({
+            entry,
+            kind: "success",
+            fallbackMethods: [],
+            trashAlso: unsubResult.trashAlso,
+          });
+        } else {
+          // Stay in the failure modal but surface the new error.
+          setUnsubResult({
+            ...unsubResult,
+            errorMessage: result.error ?? "Could not send the unsubscribe email.",
+          });
+        }
+      } else {
+        await window.api.openExternal(fallbackEntry.url);
+        setUnsubResult(null);
+        setUnsubCheck({ entry, trashAlso: true });
+      }
     } finally {
       setActionLoading(false);
     }
@@ -1586,6 +1630,9 @@ export default function AccountDetail(): JSX.Element {
             Couldn't automatically unsubscribe from{" "}
             <strong>{displayName}</strong>.
           </p>
+          {unsubResult.errorMessage && (
+            <p className="text-xs text-base-content/50 break-all">{unsubResult.errorMessage}</p>
+          )}
           {unsubResult.fallbackMethods.length > 0 && (
             <div className="space-y-2 mt-1">
               <p className="text-base-content/60">Try another method:</p>

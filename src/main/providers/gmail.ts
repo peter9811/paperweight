@@ -1,6 +1,6 @@
 import type { EmailProvider, EmailMessage, EmailConnection } from "./types";
 import { loadCredentials, saveCredentials } from "../credentials";
-import { cleanHtml, resolveUnsubscribe, runLoopbackAuth } from "./utils";
+import { buildRfc822Message, cleanHtml, resolveUnsubscribe, runLoopbackAuth } from "./utils";
 import { syncLog } from "../utils/log";
 
 // Injected at build time via electron-vite define.
@@ -459,6 +459,17 @@ export function createGmailProvider(): EmailProvider {
           addLabelIds: ["UNREAD"],
         });
       }
+    },
+
+    async sendEmail(to: string, subject: string, body: string): Promise<void> {
+      const token = await getValidAccessToken();
+      const from = await fetchGmailProfileEmail(token);
+      // Gmail rejects messages with an empty From; fail loudly so the renderer
+      // gets a clear error instead of a confusing "header invalid" from the API.
+      if (!from) throw new Error("Could not resolve sender address from Gmail profile");
+      const raw = buildRfc822Message(from, to, subject, body);
+      const encoded = Buffer.from(raw, "utf-8").toString("base64url");
+      await gmailApiPost("/messages/send", { raw: encoded });
     },
 
     async getCurrentSyncCheckpoint(): Promise<string | undefined> {

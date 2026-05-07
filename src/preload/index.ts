@@ -154,6 +154,9 @@ const api: ElectronAPI = {
   },
 
   installUpdate: () => ipcRenderer.invoke(IPC.installUpdate),
+
+  sendEmail: (to, subject, body) =>
+    ipcRenderer.invoke(IPC.sendEmail, to, subject, body),
 };
 
 contextBridge.exposeInMainWorld("api", api);

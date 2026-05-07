@@ -50,4 +50,7 @@ export interface EmailProvider {
   trashMessage(messageId: string): Promise<void>;
   markAsSpam(messageId: string): Promise<void>;
   markAsRead(messageId: string, isRead: boolean): Promise<void>;
+
+  // Send a plain-text email from the connected account.
+  sendEmail(to: string, subject: string, body: string): Promise<void>;
 }

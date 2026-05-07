@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { Vendor, VendorQuery, UnsubscribeEntry } from "@shared/types";
 import { formatRelativeDate } from "@shared/formatting";
+import { parseMailto, PAPERWEIGHT_UNSUB_BODY } from "@shared/utils";
 import { ArrowUpDown, BadgeCheck, BellOff, ChevronLeft, ChevronRight, Flag, SlidersHorizontal, Trash2 } from "lucide-react";
 import ActionModal from "../components/ActionModal";
 
@@ -27,13 +28,14 @@ interface UnsubCheckState {
   trashAlso: boolean;
 }
 
-/** Result of an rfc8058 POST attempt. */
+/** Result of an automated unsubscribe attempt (rfc8058 POST or mailto SMTP send). */
 interface UnsubResultState {
   vendor: Vendor;
   kind: "success" | "failure";
   /** Other methods to offer as fallback when kind = 'failure' */
   fallbackMethods: UnsubscribeEntry[];
   trashAlso: boolean;
+  errorMessage?: string;
 }
 
 type BatchPhase = "confirm" | "progress" | "results";
@@ -125,12 +127,25 @@ function pickBestMethod(
   return undefined;
 }
 
+/** Best mailto fallback for batch when rfc8058 isn't available. */
+function pickBestMailto(
+  methods: UnsubscribeEntry[],
+): UnsubscribeEntry | undefined {
+  for (const p of ["list-unsubscribe", "footer"] as const) {
+    const found = methods.find(
+      (m) => m.method === p && m.url.startsWith("mailto:"),
+    );
+    if (found) return found;
+  }
+  return undefined;
+}
+
 function unsubDescription(entry: UnsubscribeEntry, vendorName: string) {
   if (entry.method === "rfc8058") {
     return <>Paperweight will automatically send an unsubscribe request to <strong>{vendorName}</strong>.</>;
   }
   if (entry.url.startsWith("mailto:")) {
-    return <>Your email client will open with a pre-filled unsubscribe request to <strong>{vendorName}</strong>. Send the email to complete.</>;
+    return <>Paperweight will send an unsubscribe email from your account to <strong>{vendorName}</strong>.</>;
   }
   return <>The unsubscribe page for <strong>{vendorName}</strong> will open in your browser. Complete the process there.</>;
 }
@@ -251,7 +266,7 @@ export default function Mail(): JSX.Element {
 
 
   // Sync indeterminate state on select-all checkbox
-  const eligibleVendors = vendors.filter((v) => v.has_rfc8058);
+  const eligibleVendors = vendors.filter((v) => v.has_rfc8058 || v.has_mailto_unsub);
   const allEligibleSelected =
     eligibleVendors.length > 0 &&
     eligibleVendors.every((v) => selectedIds.has(v.id));
@@ -460,18 +475,38 @@ export default function Mail(): JSX.Element {
         if (kind === "unsubscribe") {
           const methods = await getOrFetchMethods(vendor.id);
           const rfc = methods.find((m) => m.method === "rfc8058");
-          if (!rfc) {
-            failed.push(name);
-            continue;
+          let success = false;
+          let sentEmail = false;
+          if (rfc) {
+            const result = await window.api.executeRfc8058(rfc.url);
+            success = result.success;
+          } else {
+            const mailtoEntry = pickBestMailto(methods);
+            if (mailtoEntry) {
+              const { to, subject, body } = parseMailto(mailtoEntry.url);
+              const result = await window.api.sendEmail(
+                to,
+                subject,
+                body || PAPERWEIGHT_UNSUB_BODY,
+              );
+              success = result.success;
+              sentEmail = true;
+            }
           }
-          const result = await window.api.executeRfc8058(rfc.url);
-          if (!result.success) {
+          if (success) {
+            await window.api.markVendorUnsubscribed(vendor.id);
+            if (trashAlso) await window.api.trashVendorMessages(vendor.id, ["bulk"]);
+            succeeded.push(vendor.id);
+          } else {
             failed.push(name);
-            continue;
           }
-          await window.api.markVendorUnsubscribed(vendor.id);
-          if (trashAlso) await window.api.trashVendorMessages(vendor.id, ["bulk"]);
-          succeeded.push(vendor.id);
+          // Throttle between SMTP sends regardless of success — repeated auth
+          // failures shouldn't hammer the provider. Quotas: Gmail submission
+          // ~100/24h free, ~2000 Workspace; Microsoft 10k/day.
+          // No throttle for rfc8058 POSTs — those are fine back-to-back.
+          if (sentEmail && i < batchVendors.length - 1) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
         } else if (kind === "spam") {
           const result = await window.api.reportSpamVendor(vendor.id);
           if (!result.success) {
@@ -545,7 +580,19 @@ export default function Mail(): JSX.Element {
           setUnsubResult({ vendor, kind: "success", fallbackMethods: [], trashAlso: true });
         } else {
           setModal(null);
-          setUnsubResult({ vendor, kind: "failure", fallbackMethods, trashAlso: true });
+          setUnsubResult({ vendor, kind: "failure", fallbackMethods, trashAlso: true, errorMessage: result.error });
+        }
+      } else if (best.url.startsWith("mailto:")) {
+        const { to, subject, body } = parseMailto(best.url);
+        const fallbackMethods = (methods ?? []).filter((m) => m.url !== best.url);
+        const result = await window.api.sendEmail(to, subject, body || PAPERWEIGHT_UNSUB_BODY);
+        if (result.success) {
+          await window.api.markVendorUnsubscribed(vendor.id);
+          setModal(null);
+          setUnsubResult({ vendor, kind: "success", fallbackMethods: [], trashAlso: true });
+        } else {
+          setModal(null);
+          setUnsubResult({ vendor, kind: "failure", fallbackMethods, trashAlso: true, errorMessage: result.error });
         }
       } else {
         await window.api.openExternal(best.url);
@@ -592,9 +639,20 @@ export default function Mail(): JSX.Element {
     const { vendor } = unsubResult;
     setActionLoading(true);
     try {
-      await window.api.openExternal(entry.url);
-      setUnsubResult(null);
-      setUnsubCheck({ vendor, trashAlso: true });
+      if (entry.url.startsWith("mailto:")) {
+        const { to, subject, body } = parseMailto(entry.url);
+        const result = await window.api.sendEmail(to, subject, body || PAPERWEIGHT_UNSUB_BODY);
+        if (result.success) {
+          await window.api.markVendorUnsubscribed(vendor.id);
+          setUnsubResult({ vendor, kind: "success", fallbackMethods: [], trashAlso: unsubResult.trashAlso });
+        } else {
+          setToast(result.error ?? "Could not send the unsubscribe email.");
+        }
+      } else {
+        await window.api.openExternal(entry.url);
+        setUnsubResult(null);
+        setUnsubCheck({ vendor, trashAlso: true });
+      }
     } finally {
       setActionLoading(false);
     }
@@ -841,6 +899,9 @@ export default function Mail(): JSX.Element {
           <p>
             Couldn't automatically unsubscribe from <strong>{name}</strong>.
           </p>
+          {unsubResult.errorMessage && (
+            <p className="text-xs text-base-content/50 break-all">{unsubResult.errorMessage}</p>
+          )}
           {fallbackMethods.length > 0 && (
             <div className="space-y-2 mt-1">
               <p className="text-base-content/60">Try another method:</p>
@@ -1320,7 +1381,7 @@ export default function Mail(): JSX.Element {
                   >
                     <div className={`${ROW_GRID} w-full`}>
                       {/* Checkbox column */}
-                      {vendor.has_rfc8058 ? (
+                      {vendor.has_rfc8058 || vendor.has_mailto_unsub ? (
                         <input
                           type="checkbox"
                           className="checkbox checkbox-sm"

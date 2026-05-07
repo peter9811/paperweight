@@ -76,6 +76,7 @@ export const IPC = {
   accountSwitched: "account-switched",
   updateDownloaded: "update-downloaded",
   installUpdate: "install-update",
+  sendEmail: "send-email",
 } as const;
 
 export interface UpdateInfo {
@@ -142,6 +143,11 @@ export interface ElectronAPI {
   onNoAccountsRemaining: (callback: () => void) => () => void;
   onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void;
   installUpdate: () => Promise<void>;
+  sendEmail: (
+    to: string,
+    subject: string,
+    body: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export type { SyncStatus };

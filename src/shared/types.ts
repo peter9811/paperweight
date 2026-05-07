@@ -109,6 +109,7 @@ export interface Vendor {
   has_marketing: boolean;
   has_account: boolean;
   has_rfc8058?: boolean;
+  has_mailto_unsub?: boolean;
   has_orders?: boolean;
   status?: VendorStatus;
   breachInfo?: BreachInfo[];

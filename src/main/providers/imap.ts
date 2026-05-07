@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
+import nodemailer from "nodemailer";
 import type { EmailProvider, EmailMessage, EmailConnection } from "./types";
 import { loadCredentials } from "../credentials";
 import { cleanHtml, resolveUnsubscribe } from "./utils";
@@ -449,6 +450,35 @@ export function createImapProvider(): EmailProvider {
         }
       } finally {
         lock.release();
+      }
+    },
+
+    async sendEmail(to: string, subject: string, body: string): Promise<void> {
+      const creds = loadCredentials();
+      if (!creds?.imap) throw new Error("No IMAP credentials stored");
+      if (!creds.imap.smtp) throw new Error("No SMTP server configured for this account");
+
+      const transporter = nodemailer.createTransport({
+        host: creds.imap.smtp.host,
+        port: creds.imap.smtp.port,
+        secure: creds.imap.smtp.tls,
+        auth: { user: creds.imap.username, pass: creds.imap.password },
+        tls: creds.imap.allowSelfSigned ? { rejectUnauthorized: false } : undefined,
+        connectionTimeout: 15_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
+        logger: false,
+      });
+
+      try {
+        await transporter.sendMail({
+          from: creds.imap.username,
+          to,
+          subject,
+          text: body,
+        });
+      } finally {
+        transporter.close();
       }
     },
 

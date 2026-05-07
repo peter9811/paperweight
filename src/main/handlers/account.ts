@@ -22,6 +22,7 @@ import {
   ensureAccountSettingsInDb,
 } from "../services/account";
 import { clearSyncData, getSyncState } from "../services/sync";
+import { getProvider } from "../providers/ProviderFactory";
 import { startSync, getSyncStatus, stopSync, stopAllSyncs } from "../sync-manager";
 import { getLicenseStatus, deleteLicense } from "../services/settings";
 import { getDashboardStats } from "../services/stats";
@@ -331,6 +332,28 @@ export function registerAccountHandlers(): void {
       logPath: getFileLogPath() || join(app.getPath("logs"), "main.log"),
     };
   });
+
+  ipcMain.handle(
+    IPC.sendEmail,
+    async (_event, to: unknown, subject: unknown, body: unknown) => {
+      if (!isString(to) || !to.includes("@")) throw new Error("Invalid recipient");
+      if (!isString(subject)) throw new Error("Invalid subject");
+      if (!isString(body)) throw new Error("Invalid body");
+      // Log only the recipient domain — the full address is personal data
+      // to the user). Domain alone is enough to debug provider/host issues.
+      const recipientDomain = to.split("@")[1] || "unknown";
+      try {
+        const provider = getProvider();
+        actionLog.info(`Sending email via ${provider.type} to <${recipientDomain}>`);
+        await provider.sendEmail(to, subject, body);
+        return { success: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        actionLog.error(`Send email via <${recipientDomain}> failed: ${msg}`);
+        return { success: false, error: msg };
+      }
+    },
+  );
 
   ipcMain.handle(IPC.readLogFile, () => {
     const logPath = getFileLogPath() || join(app.getPath("logs"), "main.log");
