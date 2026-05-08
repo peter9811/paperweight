@@ -18,7 +18,6 @@ import {
   ImapConnect,
 } from "../components/ProviderConnect";
 import ServerSettingsModal from "../components/ServerSettingsModal";
-import SmtpTestCard from "../components/SmtpTestCard";
 import { useAccounts } from "../hooks/useAccounts";
 
 type AddAccountView = "provider" | "gmail" | "microsoft" | "apple" | "proton" | "imap";
@@ -307,9 +306,6 @@ export default function Settings(): JSX.Element {
           </div>
         </div>
       </div>
-
-      {/* TEMP: SMTP / Send tester */}
-      <SmtpTestCard />
 
       {/* Section 2: License */}
       <div ref={licenseSectionRef} className="card bg-base-200">
