@@ -86,10 +86,14 @@ export function ProviderSelect({
       <button
         className="btn btn-outline btn-block justify-start gap-3"
         onClick={onGmail}
+        disabled
       >
         <GoogleLogo />
-        Connect with Google
+        Connect with Google (temporarily unavailable)
       </button>
+      <p className="text-xs text-base-content/60 -mt-2">
+        Google OAuth is temporarily unavailable while verification is in progress.
+      </p>
 
       <button
         className="btn btn-outline btn-block justify-start gap-3"
