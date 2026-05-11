@@ -1,0 +1,57 @@
+{
+  "slug": "zara",
+  "generated_at": "2026-05-11T00:00:00.000Z",
+  "breach": {
+    "slug": "zara",
+    "company_name": "Zara",
+    "runs": [
+      "Zara",
+      "Inditex"
+    ],
+    "categories": [
+      "shopping"
+    ],
+    "address": "Inditex S.A., Avenida de la Diputación, Edificio Inditex, 15142 Arteixo, A Coruña, Spain",
+    "web": "https://www.zara.com",
+    "webform": "https://www.zara.com/help/privacy-and-cookies",
+    "email": "dataprotection@zara.com",
+    "suggested_transport_medium": "email",
+    "name": "Zara",
+    "title": "Zara",
+    "domain": "zara.com",
+    "breach_date": "2026-04-22",
+    "added_date": "2026-05-08T00:00:00Z",
+    "modified_date": "2026-05-08T00:00:00Z",
+    "pwn_count": 197376,
+    "description": "In April 2026, the <a href=\"https://www.bleepingcomputer.com/news/security/zara-data-breach-exposed-personal-information-of-197-000-people/\" target=\"_blank\" rel=\"noopener\">ShinyHunters extortion group published approximately 140GB of data stolen from Zara</a> after parent company <a href=\"https://www.inditex.com\" target=\"_blank\" rel=\"noopener\">Inditex</a> declined to negotiate a ransom. The dataset contained roughly 197,000 unique customer email addresses alongside geographic locations, purchase history (product SKUs and order IDs) and the contents of customer support tickets. Inditex confirmed the data was exfiltrated from \"a former technology provider\" — independently identified as analytics platform <a href=\"https://www.securityweek.com/zara-confirms-data-breach-after-shinyhunters-leaks-customer-records/\" target=\"_blank\" rel=\"noopener\">Anodot</a>, whose compromised authentication tokens gave attackers access to client BigQuery instances across several international companies including Vimeo, Rockstar Games, Udemy, 7-Eleven and Carnival. Inditex stated that operations were unaffected and that names, telephone numbers, postal addresses, passwords and payment information were not exposed.",
+    "attribution": "ShinyHunters",
+    "logo_path": "https://logos.haveibeenpwned.com/Zara.png",
+    "data_classes": [
+      "Email addresses",
+      "Geographic locations",
+      "Purchases",
+      "Support tickets"
+    ],
+    "is_verified": true,
+    "is_sensitive": false,
+    "source": {
+      "name": "Have I Been Pwned",
+      "url": "https://haveibeenpwned.com/Breach/Zara"
+    }
+  },
+  "enforcement": {
+    "records": [],
+    "total_fines": 0
+  },
+  "content": {
+    "aboutCompany": "Zara is the flagship fashion brand of Inditex, the world's largest fashion retailer. Founded in A Coruña, Spain in 1975 by Amancio Ortega, it operates more than 2,200 stores across 96 markets and runs a vertically integrated fast-fashion model that ships new designs from concept to store in weeks. Zara is part of Inditex Group, which also owns Massimo Dutti, Pull&Bear, Bershka, Stradivarius, Oysho and Zara Home, and Inditex S.A. is the data controller for Zara customer accounts under EU GDPR.",
+    "keyTakeaways": [
+      "In April 2026, ShinyHunters published a dataset containing roughly 197,000 unique Zara customer email addresses alongside geographic locations, purchase history (product SKUs and order IDs) and customer support ticket contents. Inditex has stated that no names, telephone numbers, postal addresses, passwords or payment information were involved.",
+      "Inditex is now part of a wider ShinyHunters campaign that exploited compromised authentication tokens at analytics vendor Anodot to pull customer data from at least Vimeo, Rockstar Games, Udemy, 7-Eleven and Carnival's BigQuery instances. For EU customers it's a textbook case of why GDPR holds the controller (Inditex) responsible for personal data even when the breach happens at a processor (Anodot).",
+      "Even without a name or password, the leaked combination of your email, the exact items you bought, your country and the text of any support tickets you raised is enough to write a very convincing \"Zara order issue\" email targeted at you. If you'd rather Inditex stop holding this data, email <a href=\"mailto:dataprotection@zara.com\" target=\"_blank\" rel=\"noopener\">dataprotection@zara.com</a> and ask them to delete it."
+    ],
+    "incidentAndExposure": "Inditex disclosed in early May 2026 that customer records had been exfiltrated from a former technology provider — later identified as analytics platform Anodot — by extortion group ShinyHunters. The compromised dataset, listed by ShinyHunters on its dark-web leak site after Inditex declined to engage, contained approximately 197,000 unique Zara customer email addresses alongside geographic location, purchase history (order IDs and product SKUs) and the contents of customer support tickets. Inditex's statement, given to <a href=\"https://www.bleepingcomputer.com/news/security/zara-data-breach-exposed-personal-information-of-197-000-people/\" target=\"_blank\" rel=\"noopener\">BleepingComputer</a> and other reporters, is: \"Inditex has immediately applied its security protocols and has started notifying the relevant authorities of this unauthorized access, that stems from a security incident that affected a former technology provider and has impacted several companies operating internationally\", adding that \"operations and systems haven't been affected and customers can continue to access and use its services safely\". The company specified that names, telephone numbers, postal addresses, passwords and payment information were not in the leak. The same Anodot intrusion is reported to have produced roughly 140GB of data and around 95 million customer support ticket records across all victims, with Vimeo, Rockstar Games, Udemy, 7-Eleven and Carnival also named in the campaign. Inditex has not, at the time of writing, published a customer-facing notice or FAQ on zara.com or inditex.com.",
+    "timelineAndCause": "ShinyHunters listed Zara on its dark-web extortion portal in mid-April 2026 with a deadline of <strong>21 April 2026</strong> for Inditex to make contact. After negotiations did not happen, the dataset was published on <strong>22 April 2026</strong>. Inditex publicly confirmed the breach in early May 2026 and <a href=\"https://haveibeenpwned.com/Breach/Zara\" target=\"_blank\" rel=\"noopener\">Have I Been Pwned</a> added it on <strong>8 May 2026</strong>. Inditex pinned the root cause on a security incident at \"a former technology provider\" — independently identified as analytics vendor Anodot — and confirmed it had \"immediately applied its security protocols\" and started notifying the relevant authorities. The attack vector was compromised Anodot authentication tokens, which ShinyHunters used to query Anodot customers' Google BigQuery instances and pull data without ever touching Inditex's own infrastructure. The same vector has been used against Vimeo, Rockstar Games, Udemy, 7-Eleven and Carnival in the same campaign.",
+    "nextSteps": "What leaked here is unusual: there's no password to rotate and no name on file, but attackers do have your Zara email address, a list of what you actually bought (down to the SKU and order number), the country you shop from, and the text of any support tickets you raised. That is a phishing kit. Expect emails or SMS that quote your real order number — \"there's a problem with your refund for order #1234567890\" with a fake link to \"verify your card\", \"your return for [the actual item you bought] couldn't be processed, click to re-submit\", or follow-ups to a complaint you genuinely raised months ago (\"we've reopened your support ticket, please confirm your details to receive a gift card\"). If you live in a country Zara serves through duties, expect the classic \"your Zara delivery is held at customs, pay €1.99\" variant — they know your country. The rule of thumb: anything Zara-branded that arrives unprompted and leans on a real order number, a specific item, or a complaint you remember making is the attackers reading from the leak. Don't click the link, don't call the number back, don't pay.\n\nIf you'd rather Inditex stop holding this data, email <a href=\"mailto:dataprotection@zara.com\" target=\"_blank\" rel=\"noopener\">dataprotection@zara.com</a> and ask them to close your Zara account and delete your personal data. Plain email is enough — you don't have to use Zara's own privacy form, you don't have to give a reason, and they have 30 days to confirm. Mention that the request covers all Inditex brands you've shopped with (Zara, Massimo Dutti, Pull&Bear, Bershka, Stradivarius, Oysho, Zara Home) so you don't have to send the same request seven times.\n\nInditex says no passwords were taken, so your Zara login itself doesn't need changing. The catch: your email is now in a confirmed leak alongside several other companies hit in the same Anodot-linked campaign, which means it will be tried as a credential-stuffing username elsewhere. If you reuse the same password between Zara and any other site, change it on every site that shares it."
+  }
+}
