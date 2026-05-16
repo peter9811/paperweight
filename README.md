@@ -25,12 +25,15 @@ Local-first. Your data stays on your computer. Respecting your privacy by defaul
 - ✅ Custom IMAP
 - ✅ Google / Gmail
 - ✅ Microsoft
-- 🔜 Apple (coming soon)
+- ✅ Apple
+- ✅ Proton Mail (via Bridge)
+
+IMAP Presets: Proton, Yahoo Mail, Fastmail, Yandex, Zoho, Mailbox.org, Posteo, GMX.
 
 ## Quick Start
 
 1. Download [latest release](https://github.com/wslyvh/paperweight/releases) for your platform
-2. Connect your email (Gmail, Outlook, or IMAP)
+2. Connect your email
 3. Scan your inbox in ~2 minutes
 4. Start unsubscribing and deleting
 
@@ -39,7 +42,7 @@ Local-first. Your data stays on your computer. Respecting your privacy by defaul
 Core features available for free. Upgrade for unlimited history, multiple accounts and to support open-source software development.
 
 - **Free tier**: 30-day email scan, core features included
-- **Perpetual license**: All features, unlimited email history, permanent use of Paperweight
+- **Perpetual license**: All features, unlimited email history, multiple email accounts, permanent use of Paperweight
 
 [Buy a perpetual license and support development →](https://www.paperweight.email/#pricing)
 
