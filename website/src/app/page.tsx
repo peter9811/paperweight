@@ -14,8 +14,26 @@ import {
   Info,
   ChevronRight,
 } from "lucide-react";
+import { PROVIDER_PRESETS } from "@shared/email-providers";
+import {
+  AppleLogo,
+  GoogleLogo,
+  MicrosoftLogo,
+  ProtonLogo,
+} from "@shared/provider-logos";
 
 export const HOME_LAST_UPDATED = "2026-04-02";
+
+const OAUTH_PROVIDER_ICONS = [
+  { logo: <GoogleLogo className="w-9 h-9" />, label: "Google" },
+  { logo: <MicrosoftLogo className="w-9 h-9" />, label: "Microsoft" },
+  { logo: <AppleLogo className="w-9 h-9 fill-current" />, label: "Apple" },
+  { logo: <ProtonLogo className="w-9 h-9" />, label: "Proton" },
+] as const;
+
+const OTHER_EMAIL_PRESETS = PROVIDER_PRESETS.filter(
+  (preset) => preset.id !== "apple" && preset.id !== "proton",
+);
 
 export default async function Home() {
   const latestVersion = await getLatestVersion();
@@ -169,18 +187,33 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Supports */}
+      {/* Email providers */}
       <section className="bg-base-300 py-16">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-2">Supported email providers</h2>
           <p className="text-sm opacity-60 mb-8">
             Works with any IMAP provider
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-8">
-            <span className="text-lg">Gmail</span>
-            <span className="text-lg">Outlook</span>
-            <span className="text-lg">IMAP</span>
-            <span className="text-lg opacity-50">iCloud (soon)</span>
+          <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
+            {OAUTH_PROVIDER_ICONS.map((option) => (
+              <div
+                key={option.label}
+                className="flex w-36 flex-col items-center gap-2"
+              >
+                <div className="flex h-16 w-16 items-center justify-center opacity-80">
+                  {option.logo}
+                </div>
+                <span className="text-sm font-medium opacity-80">
+                  {option.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mx-auto mt-10 max-w-2xl">
+            <p className="text-sm font-medium mb-2">Other email providers</p>
+            <p className="text-sm opacity-60">
+              e.g. {OTHER_EMAIL_PRESETS.map((preset) => preset.name).join(", ")} or any other IMAP provider
+            </p>
           </div>
         </div>
       </section>
