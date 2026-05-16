@@ -86,14 +86,10 @@ export function ProviderSelect({
       <button
         className="btn btn-outline btn-block justify-start gap-3"
         onClick={onGmail}
-        disabled
       >
         <GoogleLogo />
-        Connect with Google (temporarily unavailable)
+        Connect with Google
       </button>
-      <p className="text-xs text-base-content/60 -mt-2">
-        Google OAuth is temporarily unavailable while verification is in progress.
-      </p>
 
       <button
         className="btn btn-outline btn-block justify-start gap-3"
@@ -174,45 +170,29 @@ export function GmailConnect({
   return (
     <div className="space-y-4">
       {step === "authorizing" && (
-        <>
-          <div className="alert alert-warning text-xs text-left">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="h-6 w-6 shrink-0 stroke-current">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span>
-              Google verification is still pending. If you see a warning page,
-              click{" "}
-              <span className="font-medium">Advanced</span> then{" "}
-              <span className="font-medium">
-                Go to Paperweight (unsafe)
-              </span>.
-            </span>
+        <div className="flex flex-col items-center gap-4 py-10">
+          <span className="loading loading-spinner loading-lg"></span>
+          <div className="text-center mt-2">
+            <p className="text-sm">Complete sign-in in your browser...</p>
+            <p className="text-xs text-base-content/50 mt-1">
+              Waiting for Google authorization
+            </p>
           </div>
-
-          <div className="flex flex-col items-center gap-4 py-10">
-            <span className="loading loading-spinner loading-lg"></span>
-            <div className="text-center mt-2">
-              <p className="text-sm">Complete sign-in in your browser...</p>
-              <p className="text-xs text-base-content/50 mt-1">
-                Waiting for Google authorization
-              </p>
-            </div>
-            <div className="flex gap-3 mt-6 w-full">
-              <button className="btn btn-outline flex-1" onClick={handleConnect}>
-                Retry
-              </button>
-              <button
-                className="btn btn-ghost flex-1"
-                onClick={() => {
-                  attemptRef.current++;
-                  onBack();
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="flex gap-3 mt-6 w-full">
+            <button className="btn btn-outline flex-1" onClick={handleConnect}>
+              Retry
+            </button>
+            <button
+              className="btn btn-ghost flex-1"
+              onClick={() => {
+                attemptRef.current++;
+                onBack();
+              }}
+            >
+              Cancel
+            </button>
           </div>
-        </>
+        </div>
       )}
 
       {step === "success" && (
