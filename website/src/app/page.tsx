@@ -13,6 +13,7 @@ import {
   Github,
   Info,
   ChevronRight,
+  Coins,
 } from "lucide-react";
 import { PROVIDER_PRESETS } from "@shared/email-providers";
 import {
@@ -446,7 +447,27 @@ export default async function Home() {
               </div>
             </div>
 
-            <p className="text-center text-sm opacity-60 mt-8">
+            <div className="card bg-base-100 border border-base-300 max-w-4xl mx-auto mt-6">
+              <div className="card-body flex flex-col gap-3 py-4 px-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <Coins className="size-5 shrink-0 opacity-70 mx-2" aria-hidden />
+                  <div>
+                    <p className="text-lg font-medium">Pay with crypto</p>
+                    <p className="text-sm opacity-70 mt-2">
+                      Bitcoin, Ethereum, and stablecoins accepted. We&apos;ll send payment details and your license by email.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`mailto:${SITE_CONFIG.CONTACT_EMAIL}?subject=${encodeURIComponent("Paperweight license (crypto)")}`}
+                  className="btn btn-outline btn-accent btn-sm shrink-0 sm:ml-4"
+                >
+                  Contact us
+                </a>
+              </div>
+            </div>
+
+            <p className="text-center text-sm opacity-60 mt-4 max-w-2xl mx-auto">
               *Early supporter pricing. Your license includes support and updates through the first major release (v1).
             </p>
           </div>
