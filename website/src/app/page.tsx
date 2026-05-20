@@ -454,7 +454,7 @@ export default async function Home() {
                   <div>
                     <p className="text-lg font-medium">Pay with crypto</p>
                     <p className="text-sm opacity-70 mt-2">
-                      Bitcoin, Ethereum, and stablecoins accepted. We&apos;ll send payment details and your license by email.
+                      Bitcoin, Monero, Zcash, Ethereum, and stablecoins accepted. Payment details and license will be sent by email.
                     </p>
                   </div>
                 </div>
