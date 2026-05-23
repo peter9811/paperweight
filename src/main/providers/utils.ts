@@ -13,6 +13,7 @@ import {
   UNSUBSCRIBE_LINK_TEXT,
   UNSUBSCRIBE_URL_PATTERNS,
 } from "@shared/languages";
+import { IPC } from "@shared/ipc";
 
 // --- OAuth loopback server ---
 //
@@ -23,6 +24,10 @@ import {
 // redirectUriBase: protocol + host used as the redirect_uri (e.g. "http://127.0.0.1"
 //   for Gmail, "http://localhost" for Microsoft — Azure requires the localhost form).
 // buildAuthUrl: called with the full redirectUri (base + port), returns the URL to open.
+// openInBrowser: when true (default) the auth URL is opened in the system browser; when
+//   false it is copied to the clipboard instead, so the user can paste it into the
+//   browser profile holding the account they want to connect. The URL is always emitted
+//   to the renderer (IPC.authUrl) so it can offer copy/open affordances on either path.
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -30,7 +35,8 @@ function escapeHtml(str: string): string {
 
 export function runLoopbackAuth(
   redirectUriBase: string,
-  buildAuthUrl: (redirectUri: string) => string
+  buildAuthUrl: (redirectUri: string) => string,
+  openInBrowser = true
 ): Promise<{ code: string; redirectUri: string }> {
   return new Promise((resolve, reject) => {
     let redirectUri = "";
@@ -130,9 +136,22 @@ export function runLoopbackAuth(
     server.listen(0, "127.0.0.1", () => {
       const { port } = server.address() as AddressInfo;
       redirectUri = `${redirectUriBase}:${port}`;
+      const authUrl = buildAuthUrl(redirectUri);
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { shell } = require("electron") as typeof import("electron");
-      shell.openExternal(buildAuthUrl(redirectUri));
+      const { shell, clipboard, BrowserWindow } =
+        require("electron") as typeof import("electron");
+
+      // Surface the URL to the renderer so the connect screen can offer
+      // "open in browser" / "copy link" for the current attempt's live URL.
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(IPC.authUrl, authUrl);
+      }
+
+      if (openInBrowser) {
+        shell.openExternal(authUrl);
+      } else {
+        clipboard.writeText(authUrl);
+      }
     });
 
     setTimeout(() => {

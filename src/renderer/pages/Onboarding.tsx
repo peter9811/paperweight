@@ -62,11 +62,10 @@ function OnboardingCarousel(): JSX.Element {
             className="p-2 flex items-center"
           >
             <span
-              className={`block h-2.5 rounded-full transition-all duration-300 ${
-                i === active
+              className={`block h-2.5 rounded-full transition-all duration-300 ${i === active
                   ? "w-8 bg-primary-content"
                   : "w-2.5 bg-primary-content/40"
-              }`}
+                }`}
             />
           </button>
         ))}
@@ -84,6 +83,7 @@ export default function Onboarding(): JSX.Element {
   >("select");
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [supportInfo, setSupportInfo] = useState<SupportInfo>();
+  const [copyFirst, setCopyFirst] = useState(false);
 
   // If the page reloads while on /onboarding (e.g. after accountSwitched fires)
   // and credentials are already present, redirect straight to dashboard.
@@ -127,8 +127,14 @@ export default function Onboarding(): JSX.Element {
 
           {view === "select" && (
             <ProviderSelect
-              onGmail={() => setView("gmail")}
-              onMicrosoft={() => setView("microsoft")}
+              onGmail={(copy) => {
+                setCopyFirst(copy);
+                setView("gmail");
+              }}
+              onMicrosoft={(copy) => {
+                setCopyFirst(copy);
+                setView("microsoft");
+              }}
               onApple={() => setView("apple")}
               onProton={() => setView("proton")}
               onImap={() => setView("imap")}
@@ -136,12 +142,14 @@ export default function Onboarding(): JSX.Element {
           )}
           {view === "gmail" && (
             <GmailConnect
+              copyFirst={copyFirst}
               onSuccess={handleSuccess}
               onBack={() => setView("select")}
             />
           )}
           {view === "microsoft" && (
             <MicrosoftConnect
+              copyFirst={copyFirst}
               onSuccess={handleSuccess}
               onBack={() => setView("select")}
             />

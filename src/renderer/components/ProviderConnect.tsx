@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { CheckCircle2, Mail } from "lucide-react";
+import { CheckCircle2, Check, Copy, Mail } from "lucide-react";
 import { findPresetById, PROVIDER_PRESETS } from "@shared/email-providers";
 import type { ProviderPreset } from "@shared/email-providers";
 import {
@@ -13,6 +13,42 @@ export { AppleLogo, GoogleLogo, MicrosoftLogo, ProtonLogo } from "@shared/provid
 
 // ── Provider Select ──────────────────────────────────────────────────────────
 
+// Provider button paired with a copy-link icon. The main button starts auth and
+// opens the system browser (covers most users); the copy icon starts the same auth
+// but copies the sign-in link instead — for people whose account lives in a
+// different browser profile than their default.
+function OAuthSelectRow({
+  logo,
+  label,
+  copyAriaLabel,
+  onConnect,
+}: {
+  logo: JSX.Element;
+  label: string;
+  copyAriaLabel: string;
+  onConnect: (copy: boolean) => void;
+}): JSX.Element {
+  return (
+    <div className="join w-full">
+      <button
+        className="btn btn-outline join-item flex-1 justify-start gap-3"
+        onClick={() => onConnect(false)}
+      >
+        {logo}
+        {label}
+      </button>
+      <button
+        className="btn btn-outline join-item btn-square"
+        onClick={() => onConnect(true)}
+        title="Copy sign-in link instead of opening a browser"
+        aria-label={copyAriaLabel}
+      >
+        <Copy className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 export function ProviderSelect({
   onGmail,
   onMicrosoft,
@@ -20,29 +56,27 @@ export function ProviderSelect({
   onProton,
   onImap,
 }: {
-  onGmail: () => void;
-  onMicrosoft: () => void;
+  onGmail: (copy: boolean) => void;
+  onMicrosoft: (copy: boolean) => void;
   onApple: () => void;
   onProton: () => void;
   onImap: () => void;
 }): JSX.Element {
   return (
     <div className="space-y-4">
-      <button
-        className="btn btn-outline btn-block justify-start gap-3"
-        onClick={onGmail}
-      >
-        <GoogleLogo />
-        Connect with Google
-      </button>
+      <OAuthSelectRow
+        logo={<GoogleLogo />}
+        label="Connect with Google"
+        copyAriaLabel="Copy Google sign-in link"
+        onConnect={onGmail}
+      />
 
-      <button
-        className="btn btn-outline btn-block justify-start gap-3"
-        onClick={onMicrosoft}
-      >
-        <MicrosoftLogo />
-        Connect with Microsoft
-      </button>
+      <OAuthSelectRow
+        logo={<MicrosoftLogo />}
+        label="Connect with Microsoft"
+        copyAriaLabel="Copy Microsoft sign-in link"
+        onConnect={onMicrosoft}
+      />
 
       <button
         className="btn btn-outline btn-block justify-start gap-3"
@@ -73,12 +107,23 @@ export function ProviderSelect({
   );
 }
 
-// ── Gmail Connect ─────────────────────────────────────────────────────────────
+// ── OAuth Connect (Gmail / Microsoft) ──────────────────────────────────────────
 
-export function GmailConnect({
+// Shared OAuth connect flow. The loopback redirect (127.0.0.1:<port>) means any
+// browser/profile on this machine that completes consent reaches our local server,
+// so copy-link "just works" — the same live URL can be opened or copied for the
+// whole auth window. copyFirst controls only the first launch: copy the link
+// (no browser) vs. open the default browser.
+function OAuthConnect({
+  providerName,
+  startAuth,
+  copyFirst,
   onSuccess,
   onBack,
 }: {
+  providerName: string;
+  startAuth: (openInBrowser: boolean) => Promise<{ success: boolean; error?: string }>;
+  copyFirst: boolean;
   onSuccess: () => void;
   onBack: () => void;
 }): JSX.Element {
@@ -86,14 +131,31 @@ export function GmailConnect({
     "authorizing",
   );
   const [error, setError] = useState("");
+  const [authUrl, setAuthUrl] = useState("");
+  const [copied, setCopied] = useState(false);
   const attemptRef = useRef(0);
+  const copyModeRef = useRef(copyFirst);
 
-  const handleConnect = async (): Promise<void> => {
+  // The main process emits the live auth URL when the loopback server boots.
+  // It's the same URL the server is listening for, so opening/copying it works
+  // for the whole attempt — including pasting into another browser profile.
+  useEffect(() => {
+    return window.api.onAuthUrl((url) => {
+      setAuthUrl(url);
+      // On the copy-link path the main process already wrote it to the clipboard.
+      if (copyModeRef.current) setCopied(true);
+    });
+  }, []);
+
+  const handleConnect = async (openInBrowser: boolean): Promise<void> => {
     const thisAttempt = ++attemptRef.current;
+    copyModeRef.current = !openInBrowser;
     setStep("authorizing");
     setError("");
+    setAuthUrl("");
+    setCopied(false);
 
-    const result = await window.api.startGmailAuth();
+    const result = await startAuth(openInBrowser);
 
     if (attemptRef.current !== thisAttempt) return;
 
@@ -109,8 +171,18 @@ export function GmailConnect({
 
   useEffect(() => {
     if (attemptRef.current !== 0) return;
-    handleConnect();
+    handleConnect(!copyFirst);
   }, []);
+
+  const copyLink = async (): Promise<void> => {
+    if (!authUrl) return;
+    try {
+      await navigator.clipboard.writeText(authUrl);
+      setCopied(true);
+    } catch {
+      // Clipboard unavailable — the user can still use "Open in browser".
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -118,25 +190,56 @@ export function GmailConnect({
         <div className="flex flex-col items-center gap-4 py-10">
           <span className="loading loading-spinner loading-lg"></span>
           <div className="text-center mt-2">
-            <p className="text-sm">Complete sign-in in your browser...</p>
-            <p className="text-xs text-base-content/50 mt-1">
-              Waiting for Google authorization
-            </p>
+            {copied ? (
+              <>
+                <p className="text-sm">Sign-in link copied</p>
+                <p className="text-xs text-base-content/50 mt-1">
+                  Paste it into the browser profile signed in to the account you
+                  want to connect, then complete sign-in.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm">Complete sign-in in your browser...</p>
+                <p className="text-xs text-base-content/50 mt-1">
+                  Waiting for {providerName} authorization
+                </p>
+              </>
+            )}
           </div>
-          <div className="flex gap-3 mt-6 w-full">
-            <button className="btn btn-outline flex-1" onClick={handleConnect}>
-              Retry
+
+          {/* Wrong browser/profile? Open or copy the same live link. */}
+          <div className="flex gap-2 w-full">
+            <button
+              className="btn btn-outline btn-sm flex-1 gap-2"
+              onClick={copyLink}
+              disabled={!authUrl}
+            >
+              {copied ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+              {copied ? "Copied" : "Copy link"}
             </button>
             <button
-              className="btn btn-ghost flex-1"
-              onClick={() => {
-                attemptRef.current++;
-                onBack();
-              }}
+              className="btn btn-outline btn-sm flex-1"
+              onClick={() => authUrl && window.api.openExternal(authUrl)}
+              disabled={!authUrl}
             >
-              Cancel
+              Open in browser
             </button>
           </div>
+
+          <button
+            className="btn btn-ghost btn-sm w-full"
+            onClick={() => {
+              attemptRef.current++;
+              onBack();
+            }}
+          >
+            Cancel
+          </button>
         </div>
       )}
 
@@ -158,7 +261,10 @@ export function GmailConnect({
             <span>{error}</span>
           </div>
           <div className="flex gap-3 w-full">
-            <button className="btn btn-outline flex-1" onClick={handleConnect}>
+            <button
+              className="btn btn-outline flex-1"
+              onClick={() => handleConnect(true)}
+            >
               Try Again
             </button>
             <button className="btn btn-ghost flex-1" onClick={onBack}>
@@ -171,101 +277,47 @@ export function GmailConnect({
   );
 }
 
+// ── Gmail Connect ─────────────────────────────────────────────────────────────
+
+export function GmailConnect({
+  onSuccess,
+  onBack,
+  copyFirst = false,
+}: {
+  onSuccess: () => void;
+  onBack: () => void;
+  copyFirst?: boolean;
+}): JSX.Element {
+  return (
+    <OAuthConnect
+      providerName="Google"
+      startAuth={(open) => window.api.startGmailAuth(open)}
+      copyFirst={copyFirst}
+      onSuccess={onSuccess}
+      onBack={onBack}
+    />
+  );
+}
+
 // ── Microsoft Connect ─────────────────────────────────────────────────────────
 
 export function MicrosoftConnect({
   onSuccess,
   onBack,
+  copyFirst = false,
 }: {
   onSuccess: () => void;
   onBack: () => void;
+  copyFirst?: boolean;
 }): JSX.Element {
-  const [step, setStep] = useState<"authorizing" | "success" | "error">(
-    "authorizing",
-  );
-  const [error, setError] = useState("");
-  const attemptRef = useRef(0);
-
-  const handleConnect = async (): Promise<void> => {
-    const thisAttempt = ++attemptRef.current;
-    setStep("authorizing");
-    setError("");
-
-    const result = await window.api.startMicrosoftAuth();
-
-    if (attemptRef.current !== thisAttempt) return;
-
-    if (result.success) {
-      setStep("success");
-      window.api.startSync();
-      setTimeout(onSuccess, 1000);
-    } else {
-      setError(result.error || "Authorization failed");
-      setStep("error");
-    }
-  };
-
-  useEffect(() => {
-    if (attemptRef.current !== 0) return;
-    handleConnect();
-  }, []);
-
   return (
-    <div className="space-y-4">
-      {step === "authorizing" && (
-        <div className="flex flex-col items-center gap-4 py-10">
-          <span className="loading loading-spinner loading-lg"></span>
-          <div className="text-center mt-2">
-            <p className="text-sm">Complete sign-in in your browser...</p>
-            <p className="text-xs text-base-content/50 mt-1">
-              Waiting for Microsoft authorization
-            </p>
-          </div>
-          <div className="flex gap-3 mt-6 w-full">
-            <button className="btn btn-outline flex-1" onClick={handleConnect}>
-              Retry
-            </button>
-            <button
-              className="btn btn-ghost flex-1"
-              onClick={() => {
-                attemptRef.current++;
-                onBack();
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "success" && (
-        <div className="flex flex-col items-center gap-4 py-10">
-          <div className="text-success">
-            <CheckCircle2 className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <p className="text-sm font-medium">Connected successfully!</p>
-          <p className="text-xs text-base-content/50">
-            Starting initial sync...
-          </p>
-        </div>
-      )}
-
-      {step === "error" && (
-        <div className="space-y-4 py-6">
-          <div className="alert alert-error">
-            <span>{error}</span>
-          </div>
-          <div className="flex gap-3 w-full">
-            <button className="btn btn-outline flex-1" onClick={handleConnect}>
-              Try Again
-            </button>
-            <button className="btn btn-ghost flex-1" onClick={onBack}>
-              Back
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    <OAuthConnect
+      providerName="Microsoft"
+      startAuth={(open) => window.api.startMicrosoftAuth(open)}
+      copyFirst={copyFirst}
+      onSuccess={onSuccess}
+      onBack={onBack}
+    />
   );
 }
 

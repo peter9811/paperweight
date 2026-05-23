@@ -9,9 +9,11 @@ const api: ElectronAPI = {
 
   getConnectionStatus: () => ipcRenderer.invoke(IPC.getConnectionStatus),
 
-  startGmailAuth: () => ipcRenderer.invoke(IPC.startGmailAuth),
+  startGmailAuth: (openInBrowser) =>
+    ipcRenderer.invoke(IPC.startGmailAuth, openInBrowser),
 
-  startMicrosoftAuth: () => ipcRenderer.invoke(IPC.startMicrosoftAuth),
+  startMicrosoftAuth: (openInBrowser) =>
+    ipcRenderer.invoke(IPC.startMicrosoftAuth, openInBrowser),
 
   saveImapConfig: (config) => ipcRenderer.invoke(IPC.saveImapConfig, config),
 
@@ -41,6 +43,14 @@ const api: ElectronAPI = {
   wipeData: () => ipcRenderer.invoke(IPC.wipeData),
 
   openExternal: (url) => ipcRenderer.invoke(IPC.openExternal, url),
+
+  onAuthUrl: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, url: string): void => {
+      callback(url);
+    };
+    ipcRenderer.on(IPC.authUrl, handler);
+    return () => ipcRenderer.removeListener(IPC.authUrl, handler);
+  },
 
   onSyncProgress: (callback) => {
     const handler = (

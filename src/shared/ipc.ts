@@ -42,6 +42,7 @@ export const IPC = {
   wipeData: "wipe-data",
   noAccountsRemaining: "no-accounts-remaining",
   openExternal: "open-external",
+  authUrl: "auth-url",
   syncProgress: "sync-progress",
   markUnsubscribed: "mark-unsubscribed",
   markVendorUnsubscribed: "mark-vendor-unsubscribed",
@@ -88,8 +89,8 @@ export interface UpdateInfo {
 export interface ElectronAPI {
   getLastUpdateInfo: () => Promise<UpdateInfo | null>;
   getConnectionStatus: () => Promise<boolean>;
-  startGmailAuth: () => Promise<{ success: boolean; error?: string }>;
-  startMicrosoftAuth: () => Promise<{ success: boolean; error?: string }>;
+  startGmailAuth: (openInBrowser?: boolean) => Promise<{ success: boolean; error?: string }>;
+  startMicrosoftAuth: (openInBrowser?: boolean) => Promise<{ success: boolean; error?: string }>;
   saveImapConfig: (
     config: ImapConfig
   ) => Promise<{ success: boolean; error?: string }>;
@@ -108,6 +109,7 @@ export interface ElectronAPI {
   resyncData: () => Promise<void>;
   wipeData: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
+  onAuthUrl: (callback: (url: string) => void) => () => void;
   onSyncProgress: (callback: (status: SyncStatus) => void) => () => void;
   markUnsubscribed: (email: string) => Promise<void>;
   markVendorUnsubscribed: (vendorId: number) => Promise<void>;

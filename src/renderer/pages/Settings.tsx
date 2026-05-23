@@ -51,6 +51,7 @@ export default function Settings(): JSX.Element {
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [addAccountView, setAddAccountView] =
     useState<AddAccountView>("provider");
+  const [addAccountCopyFirst, setAddAccountCopyFirst] = useState(false);
   const licenseSectionRef = useRef<HTMLDivElement>(null);
 
   const fetchWhitelist = async (): Promise<void> => {
@@ -575,8 +576,14 @@ export default function Settings(): JSX.Element {
             {addAccountView === "provider" && (
               <>
                 <ProviderSelect
-                  onGmail={() => setAddAccountView("gmail")}
-                  onMicrosoft={() => setAddAccountView("microsoft")}
+                  onGmail={(copy) => {
+                    setAddAccountCopyFirst(copy);
+                    setAddAccountView("gmail");
+                  }}
+                  onMicrosoft={(copy) => {
+                    setAddAccountCopyFirst(copy);
+                    setAddAccountView("microsoft");
+                  }}
                   onApple={() => setAddAccountView("apple")}
                   onProton={() => setAddAccountView("proton")}
                   onImap={() => setAddAccountView("imap")}
@@ -594,6 +601,7 @@ export default function Settings(): JSX.Element {
 
             {addAccountView === "gmail" && (
               <GmailConnect
+                copyFirst={addAccountCopyFirst}
                 onSuccess={handleAddAccountSuccess}
                 onBack={() => setAddAccountView("provider")}
               />
@@ -601,6 +609,7 @@ export default function Settings(): JSX.Element {
 
             {addAccountView === "microsoft" && (
               <MicrosoftConnect
+                copyFirst={addAccountCopyFirst}
                 onSuccess={handleAddAccountSuccess}
                 onBack={() => setAddAccountView("provider")}
               />

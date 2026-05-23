@@ -95,11 +95,11 @@ export function getConnectionStatus() {
   return hasCredentials();
 }
 
-export async function startGmailAuthAndRecordAccount() {
+export async function startGmailAuthAndRecordAccount(openInBrowser = true) {
   authLog.info("Gmail auth started");
 
   setStagingMode(true);
-  const result = await startLoopbackAuth();
+  const result = await startLoopbackAuth(openInBrowser);
   setStagingMode(false);
 
   if (!result.success) {
@@ -128,11 +128,11 @@ export async function startGmailAuthAndRecordAccount() {
   return result;
 }
 
-export async function startMicrosoftAuthAndRecordAccount() {
+export async function startMicrosoftAuthAndRecordAccount(openInBrowser = true) {
   authLog.info("Microsoft auth started");
 
   setStagingMode(true);
-  const result = await startMicrosoftLoopbackAuth();
+  const result = await startMicrosoftLoopbackAuth(openInBrowser);
   setStagingMode(false);
 
   if (!result.success) {

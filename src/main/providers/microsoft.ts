@@ -28,7 +28,7 @@ function generateCodeChallenge(verifier: string): string {
 
 // --- OAuth ---
 
-export async function startMicrosoftLoopbackAuth(): Promise<{
+export async function startMicrosoftLoopbackAuth(openInBrowser = true): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -48,7 +48,8 @@ export async function startMicrosoftLoopbackAuth(): Promise<{
         authUrl.searchParams.set("code_challenge_method", "S256");
         authUrl.searchParams.set("response_mode", "query");
         return authUrl.toString();
-      }
+      },
+      openInBrowser
     );
 
     const response = await fetch(MS_TOKEN_URL, {

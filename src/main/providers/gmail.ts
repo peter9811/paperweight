@@ -19,7 +19,9 @@ const SCOPES_MODIFY =
 
 // --- OAuth ---
 
-export async function startLoopbackAuth(): Promise<{ success: boolean; error?: string }> {
+export async function startLoopbackAuth(
+  openInBrowser = true
+): Promise<{ success: boolean; error?: string }> {
   try {
     const scopes = SCOPES_MODIFY;
     const { code, redirectUri } = await runLoopbackAuth(
@@ -33,7 +35,8 @@ export async function startLoopbackAuth(): Promise<{ success: boolean; error?: s
         authUrl.searchParams.set("access_type", "offline");
         authUrl.searchParams.set("prompt", "consent");
         return authUrl.toString();
-      }
+      },
+      openInBrowser
     );
 
     const response = await fetch(GOOGLE_TOKEN_URL, {
@@ -330,7 +333,6 @@ export function createGmailProvider(): EmailProvider {
 
     async connect(): Promise<EmailConnection> {
       const token = await getValidAccessToken();
-      const creds = loadCredentials();
       const email = await fetchGmailProfileEmail(token);
 
       return {

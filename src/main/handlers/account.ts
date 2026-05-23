@@ -113,9 +113,13 @@ export function registerAccountHandlers(): void {
 
   ipcMain.handle(IPC.getConnectionStatus, () => getConnectionStatus());
 
-  ipcMain.handle(IPC.startGmailAuth, () => startGmailAuthAndRecordAccount());
+  // openInBrowser defaults to true; the onboarding "copy link" path passes false
+  // so the auth URL is copied to the clipboard instead of auto-opened.
+  ipcMain.handle(IPC.startGmailAuth, (_event, openInBrowser: unknown) =>
+    startGmailAuthAndRecordAccount(openInBrowser !== false));
 
-  ipcMain.handle(IPC.startMicrosoftAuth, () => startMicrosoftAuthAndRecordAccount());
+  ipcMain.handle(IPC.startMicrosoftAuth, (_event, openInBrowser: unknown) =>
+    startMicrosoftAuthAndRecordAccount(openInBrowser !== false));
 
   ipcMain.handle(IPC.saveImapConfig, (_event, config: unknown) => {
     if (!isImapConfig(config)) throw new Error("Invalid IMAP config");
