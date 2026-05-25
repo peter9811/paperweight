@@ -93,6 +93,15 @@ jobs:
       - name: Build Linux installer
         run: yarn dist:linux
 
+      # electron-builder leaves the AppImage's native update info empty, so external update
+      # tools (AppImageUpdate, AppImageLauncher, AM/AppMan) can't update it. Fill it in here.
+      # See scripts/embed-appimage-update-info.sh for the full explanation.
+      - name: Install AppImage update tooling
+        run: sudo apt-get update -qq && sudo apt-get install -y zsync
+
+      - name: Embed AppImage update information and generate zsync
+        run: ./scripts/embed-appimage-update-info.sh
+
       - name: Upload AppImage
         uses: actions/upload-artifact@v7
         with:
@@ -105,6 +114,12 @@ jobs:
         with:
           name: linux-yml
           path: dist/latest-linux.yml
+          archive: false
+      - name: Upload AppImage zsync
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-zsync
+          path: dist/*.AppImage.zsync
           archive: false
       - name: Upload deb
         uses: actions/upload-artifact@v7
