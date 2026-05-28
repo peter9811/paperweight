@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import type { PropsWithChildren } from "react";
 import { Providers } from "@/context";
 import { SITE_CONFIG } from "@/utils/config";
+import { NavDropdown } from "@/components/NavDropdown";
+import { GetGuides } from "@/utils/guides";
 import { RESOURCE_NAV_LINKS } from "@/utils/nav";
 import "@/assets/globals.css";
 import Link from "next/link";
@@ -39,6 +41,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout(props: PropsWithChildren) {
+  const guideNavLinks = GetGuides().map((guide) => ({
+    href: `/guides/${guide.slug}`,
+    label: guide.title,
+  }));
+
   return (
     <html lang="en">
       <body>
@@ -56,24 +63,12 @@ export default function RootLayout(props: PropsWithChildren) {
                     <span>Paperweight</span>
                   </Link>
                   <div className="flex items-center gap-3">
-                    <div className="dropdown dropdown-end dropdown-hover relative">
-                      <Link href="/resources" className="btn btn-ghost btn-sm">
-                        Resources
-                      </Link>
-                      <div aria-hidden className="absolute top-full right-0 h-2 w-52" />
-                      <ul
-                        tabIndex={0}
-                        className="dropdown-content menu rounded-box z-10 mt-2 w-52 bg-base-200 p-2 shadow-lg backdrop-blur"
-                      >
-                        {RESOURCE_NAV_LINKS.filter((item) => item.href !== "/resources").map(
-                          (item) => (
-                            <li key={item.href}>
-                              <Link href={item.href}>{item.label}</Link>
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    </div>
+                    <NavDropdown
+                      label="Resources"
+                      href="/resources"
+                      links={RESOURCE_NAV_LINKS}
+                    />
+                    <NavDropdown label="Guides" href="/guides" links={guideNavLinks} />
                     <a href="/#download" className="btn btn-primary btn-sm">
                       Download
                     </a>
@@ -138,8 +133,20 @@ export default function RootLayout(props: PropsWithChildren) {
                       </div>
                     </nav>
                     <nav>
-                      <h6 className="footer-title">Resources</h6>
+                      <Link href="/resources" className="footer-title link link-hover">
+                        Resources
+                      </Link>
                       {RESOURCE_NAV_LINKS.map((item) => (
+                        <Link key={item.href} href={item.href} className="link link-hover">
+                          {item.label}
+                        </Link>
+                      ))}
+                    </nav>
+                    <nav>
+                      <Link href="/guides" className="footer-title link link-hover">
+                        Guides
+                      </Link>
+                      {guideNavLinks.map((item) => (
                         <Link key={item.href} href={item.href} className="link link-hover">
                           {item.label}
                         </Link>

@@ -1,6 +1,7 @@
 ---
 title: How to exercise your GDPR rights
 description: GDPR gives you the right to request access, deletion, anonymization, and erasure, but timing and context matter. Learn exactly when and how to exercise your rights.
+last_updated: 2026-04-20
 ---
 
 Most people know GDPR exists. Few know what it actually entitles them to do, or when.

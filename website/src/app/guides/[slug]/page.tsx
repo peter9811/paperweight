@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import dayjs from "dayjs";
 import { marked } from "marked";
 import { TakeActionCards } from "@/components/TakeActionCards";
 import { GetGuide, GetGuides } from "@/utils/guides";
@@ -52,6 +53,7 @@ export default async function Page({
   }
 
   const bodyHtml = await marked.parse(guide.body);
+  const lastUpdated = dayjs(guide.last_updated).format("MMM D, YYYY");
 
   return (
     <section className="container mx-auto px-4 py-12">
@@ -59,16 +61,17 @@ export default async function Page({
         <div className="flex items-center justify-between gap-3">
           <p className="badge badge-primary badge-soft tracking-wider">Guides</p>
           <Link
-            href="/resources"
+            href="/guides"
             className="text-sm font-medium opacity-80 hover:opacity-100 transition-opacity"
           >
-            ← Resources overview
+            ← All guides
           </Link>
         </div>
         <h1 className="text-4xl font-bold">{guide.title}</h1>
         {guide.description ? (
           <p className="text-base leading-relaxed opacity-85">{guide.description}</p>
         ) : null}
+        <p className="text-sm opacity-70">Last updated: {lastUpdated}</p>
       </header>
 
       <article

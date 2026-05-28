@@ -12,10 +12,12 @@ import { GetGuides } from "@/utils/guides";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const releases = await getReleases().catch(() => []);
   const latestRelease = releases[0]?.published_at ?? HOME_LAST_UPDATED;
-  const guideEntries = GetGuides()
+  const guides = GetGuides();
+  const latestGuideUpdate = guides[0]?.last_updated ?? HOME_LAST_UPDATED;
+  const guideEntries = guides
     .map((guide) => ({
       url: `${SITE_CONFIG.URL}/guides/${guide.slug}`,
-      lastModified: HOME_LAST_UPDATED,
+      lastModified: guide.last_updated,
       changeFrequency: "monthly" as const,
       priority: 0.6,
     }))
@@ -52,6 +54,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${SITE_CONFIG.URL}/resources`,
       lastModified: HOME_LAST_UPDATED,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
+      url: `${SITE_CONFIG.URL}/guides`,
+      lastModified: latestGuideUpdate,
       changeFrequency: "weekly",
       priority: 0.7,
     },

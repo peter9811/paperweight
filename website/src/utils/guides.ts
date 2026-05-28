@@ -9,6 +9,7 @@ export interface Guide {
   slug: string
   title: string
   description: string
+  last_updated: string
   body: string
 }
 
@@ -26,15 +27,23 @@ export function GetGuides() {
 
     if (content) {
       const doc = matter(content)
+      if (!doc.data.last_updated) {
+        throw new Error(`Guide ${i.name} is missing last_updated in frontmatter`)
+      }
+      const lastUpdated =
+        doc.data.last_updated instanceof Date
+          ? doc.data.last_updated.toISOString().slice(0, 10)
+          : String(doc.data.last_updated)
       return {
         ...doc.data,
+        last_updated: lastUpdated,
         slug: i.name.replace('.md', ''),
         body: doc.content
       }
     }
   }).filter(i => !!i) as Array<Guide>
 
-  return items
+  return items.sort((a, b) => b.last_updated.localeCompare(a.last_updated))
 }
 
 export function GetGuide(slug: string) {

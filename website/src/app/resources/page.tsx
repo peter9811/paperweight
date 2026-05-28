@@ -1,14 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BookOpen,
-  FileText,
-  History,
-  Shield,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowRight, FileText, History, Shield, TriangleAlert } from "lucide-react";
 import { SubpageHeader } from "@/components/SubpageHeader";
 import { SITE_CONFIG } from "@/utils/config";
 import { RESOURCE_NAV_LINKS } from "@/utils/nav";
@@ -16,11 +9,11 @@ import { RESOURCE_NAV_LINKS } from "@/utils/nav";
 export const metadata: Metadata = {
   title: "Resources & Tools",
   description:
-    "Explore privacy guides, GDPR request tools, data protection authority contacts, and breach resources.",
+    "GDPR request tools, data protection authority contacts, breach overviews, and other practical privacy resources.",
   openGraph: {
     title: "Resources & Tools",
     description:
-      "Explore privacy guides, GDPR request tools, data protection authority contacts, and breach resources.",
+      "GDPR request tools, data protection authority contacts, breach overviews, and other practical privacy resources.",
     url: `${SITE_CONFIG.URL}/resources`,
   },
 };
@@ -63,18 +56,6 @@ export default function Page() {
       badgeClassName: "badge-success badge-soft",
       icon: <FileText className="h-5 w-5" />,
     },
-    "/guides/how-to-exercise-your-gdpr-rights": {
-      title: "Guide: Exercise Your GDPR Rights",
-      description:
-        "Understand what you can ask for, when deletion applies, and when anonymization is the better request.",
-      href: "/guides/how-to-exercise-your-gdpr-rights",
-      cta: "Read guide",
-      tag: "Guides",
-      cardClassName: "border-primary/30 hover:border-primary/55",
-      iconClassName: "bg-primary/20 text-primary",
-      badgeClassName: "badge-primary badge-soft",
-      icon: <BookOpen className="h-5 w-5" />,
-    },
     "/resources/authorities": {
       title: "Data Protection Authorities",
       description:
@@ -101,25 +82,11 @@ export default function Page() {
     },
   };
 
-  const cards: ResourceCard[] = [
-    ...RESOURCE_NAV_LINKS.filter((link) => link.href !== "/resources")
-      .map((link) => cardMap[link.href])
-      .filter((card): card is ResourceCard => Boolean(card)),
-  ];
+  const cards: ResourceCard[] = RESOURCE_NAV_LINKS.map(
+    (link) => cardMap[link.href],
+  ).filter((card): card is ResourceCard => Boolean(card));
 
   const fallbackCards: ResourceCard[] = [
-    {
-      title: "Guide: Exercise Your GDPR Rights",
-      description:
-        "Understand what you can ask for, when deletion applies, and when anonymization is the better request.",
-      href: "/guides/how-to-exercise-your-gdpr-rights",
-      cta: "Read guide",
-      tag: "Guides",
-      cardClassName: "border-primary/30 hover:border-primary/55",
-      iconClassName: "bg-primary/20 text-primary",
-      badgeClassName: "badge-primary badge-soft",
-      icon: <BookOpen className="h-5 w-5" />,
-    },
     {
       title: "GDPR Request Generator",
       description:
