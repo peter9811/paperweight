@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { EmailProvider, EmailMessage, EmailConnection } from "./types";
 import { loadCredentials, saveCredentials } from "../credentials";
 import { resolveUnsubscribe, runLoopbackAuth, cleanHtml } from "./utils";
-import { syncLog } from "../utils/log";
+import { syncLog, authLog } from "../utils/log";
 
 // Injected at build time via electron-vite define.
 // Set MICROSOFT_CLIENT_ID env var before building.
@@ -32,6 +32,13 @@ export async function startMicrosoftLoopbackAuth(openInBrowser = true): Promise<
   success: boolean;
   error?: string;
 }> {
+  if (!CLIENT_ID) {
+    authLog.error("Microsoft auth aborted: MICROSOFT_CLIENT_ID not set at build time");
+    return {
+      success: false,
+      error: "Missing env variables: MICROSOFT_CLIENT_ID. See README for setup instructions.",
+    };
+  }
   try {
     const verifier = generateCodeVerifier();
     const challenge = generateCodeChallenge(verifier);
@@ -370,10 +377,19 @@ export async function fetchMicrosoftProfileEmail(accessToken: string): Promise<s
       "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName",
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
-    if (!resp.ok) return undefined;
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      authLog.error(`Microsoft profile fetch failed (${resp.status}): ${body}`);
+      return undefined;
+    }
     const profile = (await resp.json()) as { mail?: string; userPrincipalName?: string };
-    return profile.mail || profile.userPrincipalName;
-  } catch {
+    const email = profile.mail || profile.userPrincipalName;
+    if (!email) {
+      authLog.error("Microsoft profile response missing mail and userPrincipalName");
+    }
+    return email;
+  } catch (err) {
+    authLog.error("Microsoft profile fetch threw:", err instanceof Error ? err.message : String(err));
     return undefined;
   }
 }

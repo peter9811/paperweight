@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailMessage, EmailConnection } from "./types";
 import { loadCredentials, saveCredentials } from "../credentials";
 import { buildRfc822Message, cleanHtml, resolveUnsubscribe, runLoopbackAuth } from "./utils";
-import { syncLog } from "../utils/log";
+import { syncLog, authLog } from "../utils/log";
 
 // Injected at build time via electron-vite define.
 // Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars before building.
@@ -22,6 +22,14 @@ const SCOPES_MODIFY =
 export async function startLoopbackAuth(
   openInBrowser = true
 ): Promise<{ success: boolean; error?: string }> {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    const missing = [!CLIENT_ID && "GOOGLE_CLIENT_ID", !CLIENT_SECRET && "GOOGLE_CLIENT_SECRET"].filter(Boolean).join(" and ");
+    authLog.error(`Gmail auth aborted: ${missing} not set at build time`);
+    return {
+      success: false,
+      error: `Missing env variables: ${missing}. See README for setup instructions.`,
+    };
+  }
   try {
     const scopes = SCOPES_MODIFY;
     const { code, redirectUri } = await runLoopbackAuth(
@@ -191,10 +199,18 @@ export async function fetchGmailProfileEmail(
     const resp = await fetch(`${GMAIL_API_BASE}/profile`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!resp.ok) return undefined;
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      authLog.error(`Gmail profile fetch failed (${resp.status}): ${body}`);
+      return undefined;
+    }
     const profile = (await resp.json()) as { emailAddress?: string };
+    if (!profile.emailAddress) {
+      authLog.error("Gmail profile response missing emailAddress");
+    }
     return profile.emailAddress;
-  } catch {
+  } catch (err) {
+    authLog.error("Gmail profile fetch threw:", err instanceof Error ? err.message : String(err));
     return undefined;
   }
 }
@@ -306,9 +322,9 @@ function parseGmailMessage(msg: GmailRawMessage): EmailMessage {
   const date = !isNaN(internalDate)
     ? internalDate
     : (() => {
-        const t = new Date(getHeader("Date")).getTime();
-        return !isNaN(t) && t > 946684800000 ? t : Date.now();
-      })();
+      const t = new Date(getHeader("Date")).getTime();
+      return !isNaN(t) && t > 946684800000 ? t : Date.now();
+    })();
 
   return {
     id: msg.id,

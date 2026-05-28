@@ -46,6 +46,23 @@ Core features available for free. Upgrade for unlimited history, multiple accoun
 
 [Buy a perpetual license and support development →](https://www.paperweight.email/#pricing)
 
+## Development
+
+If you're building from source you need to add your own OAuth credentials. Copy [`.env.example`](.env.example) as `.env` and add your own Google and Microsoft client info.
+
+**Google** - https://console.cloud.google.com/
+- Create OAuth 2.0 credentials, application type "Desktop app"
+- Enable the **Gmail API** in API Library
+- Add scope `https://www.googleapis.com/auth/gmail.modify` on the consent screen
+- Add yourself as a test user while the app is in testing mode
+- Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+
+**Microsoft** - https://portal.azure.com/
+- Register an app, supported account types "Personal + work/school"
+- Authentication → add "Mobile and desktop applications" platform with redirect URI `http://localhost`
+- API permissions → Microsoft Graph → Delegated → add `User.Read`, `Mail.ReadWrite`, `Mail.Send`, `offline_access`, `openid`, `profile`
+- Set `MICROSOFT_CLIENT_ID` (no secret — we use PKCE)
+
 ## Contributing
 
 Feedback, bug reports, and PRs are welcome.
