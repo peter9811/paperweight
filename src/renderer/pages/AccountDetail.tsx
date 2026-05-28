@@ -289,6 +289,16 @@ export default function AccountDetail(): JSX.Element {
   useEffect(() => {
     if (!groupKey) return;
     setLoading(true);
+    setAccountIdentifier("");
+    setCopiedField(null);
+    setDoneIds(new Set());
+    setActiveItemId(null);
+    setPendingUnsub(null);
+    setUnsubCheck(null);
+    setUnsubResult(null);
+    setPendingDelete(null);
+    setWhitelistModalOpen(false);
+    setSelectedWhitelistValues(new Set());
     Promise.all([
       window.api.getVendorDetail(decodeURIComponent(groupKey)),
       window.api.getWhitelistEntries(),
@@ -838,7 +848,7 @@ export default function AccountDetail(): JSX.Element {
         <div className="flex items-center gap-1">
           <button
             className="btn btn-ghost btn-sm gap-1"
-          onClick={() => navigate("/accounts", { state: accountNav ? { restore: accountNav.restoreState } : undefined })}
+            onClick={() => navigate("/accounts", { state: accountNav ? { restore: accountNav.restoreState } : undefined })}
           >
             <ArrowLeft className="w-4 h-4" /> Back to overview
           </button>
