@@ -55,6 +55,23 @@ const RISK_BADGE_CLASS: Record<string, string> = {
 const TWO_YEARS_MS = 2 * 365.25 * 24 * 60 * 60 * 1000;
 const TEN_YEARS_MS = 10 * 365.25 * 24 * 60 * 60 * 1000;
 
+function isNoReplyEmail(email: string): boolean {
+  const local = email.split("@")[0]?.toLowerCase() ?? "";
+  return /no[-_.]?reply|do[-_.]?not[-_.]?reply/.test(local);
+}
+
+function pickContactEmail(
+  company: VendorDetail["company"],
+  senders: VendorDetail["senders"],
+): string | undefined {
+  if (company?.email && !isNoReplyEmail(company.email)) return company.email;
+  const nonNoReplySender = senders.find(
+    (s) => s.sender_email && !isNoReplyEmail(s.sender_email),
+  )?.sender_email;
+  if (nonNoReplySender) return nonNoReplySender;
+  return company?.email ?? senders[0]?.sender_email;
+}
+
 function EmailsBySender({
   messages,
   senderCount,
@@ -249,6 +266,7 @@ export default function AccountDetail(): JSX.Element {
   const [accountIdentifier, setAccountIdentifier] = useState("");
   const [emailLanguage, setEmailLanguage] = useState("en");
   const [userName, setUserName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
   const [pendingUnsub, setPendingUnsub] = useState<UnsubscribeEntry | null>(null);
   const [unsubCheck, setUnsubCheck] = useState<{ entry: UnsubscribeEntry; trashAlso: boolean } | null>(null);
   const [unsubResult, setUnsubResult] = useState<{
@@ -284,6 +302,10 @@ export default function AccountDetail(): JSX.Element {
           d.vendor.breachInfo?.some((b) => b.likelyAffected) ?? false,
         );
         if (settings.userName) setUserName(settings.userName);
+        const candidate = pickContactEmail(d.company, d.senders);
+        setRecipientEmail(
+          candidate && !isNoReplyEmail(candidate) ? candidate : "",
+        );
       })
       .catch((err) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
@@ -410,7 +432,7 @@ export default function AccountDetail(): JSX.Element {
   const riskDescription =
     riskInfo?.description ?? "Not enough data to determine a risk level";
 
-  const contactEmail = company?.email ?? senders[0]?.sender_email;
+  const contactEmail = pickContactEmail(company, senders);
   const deletionEmail = user_email ? buildDeletionEmail(user_email, accountIdentifier || undefined, emailLanguage, userName || undefined) : undefined;
   const accessEmail = user_email ? buildAccessEmail(user_email, accountIdentifier || undefined, emailLanguage, userName || undefined) : undefined;
 
@@ -1251,7 +1273,7 @@ export default function AccountDetail(): JSX.Element {
             </>
           )}
 
-          {contactEmail && (deletionEmail || accessEmail) ? (
+          {(deletionEmail || accessEmail) ? (
             <>
               {!company && (
                 <p className="text-base-content/50 text-xs">
@@ -1314,10 +1336,21 @@ export default function AccountDetail(): JSX.Element {
                     <div>
                       <p className="text-base-content/50 text-xs uppercase mb-1">To</p>
                       <div className="flex items-center gap-2">
-                        <p className="font-mono">{contactEmail}</p>
+                        <input
+                          type="email"
+                          className="input input-bordered input-sm font-mono w-full max-w-md"
+                          placeholder={
+                            contactEmail && isNoReplyEmail(contactEmail)
+                              ? `${contactEmail} is a no-reply address`
+                              : "recipient@example.com"
+                          }
+                          value={recipientEmail}
+                          onChange={(e) => { setRecipientEmail(e.target.value); setCopiedField(null); }}
+                        />
                         <button
                           className="btn btn-ghost btn-xs px-1"
-                          onClick={() => handleCopyField(contactEmail!, "to")}
+                          onClick={() => handleCopyField(recipientEmail, "to")}
+                          disabled={!recipientEmail}
                           title="Copy"
                         >
                           {copiedField === "to" ? <span className="text-xs text-success">✓</span> : <Clipboard className="w-3.5 h-3.5 text-base-content/40" />}
@@ -1346,8 +1379,9 @@ export default function AccountDetail(): JSX.Element {
                     <div className="flex items-center gap-2">
                       <button
                         className="btn btn-primary btn-sm gap-1"
+                        disabled={!recipientEmail}
                         onClick={() => {
-                          const mailto = `mailto:${contactEmail}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
+                          const mailto = `mailto:${recipientEmail}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(email.body)}`;
                           window.api.openExternal(mailto);
                         }}
                       >
