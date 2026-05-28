@@ -54,7 +54,7 @@ export const DEFAULT_RISK: RiskLevel = "unknown";
 export const DEFAULT_MESSAGE_TYPE: MessageType = "unknown";
 
 // Incremental sync windows
-export const FREE_TIER_SYNC_DAYS = 30;    // Free tier: 30-day window
+export const FREE_TIER_SYNC_DAYS = 90;    // Free tier: 90-day window
 export const LICENSED_SYNC_DAYS = 365;    // Licensed: 1-year window on first run
 
 // Message processing

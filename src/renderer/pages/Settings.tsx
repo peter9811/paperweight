@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import makeBlockie from "ethereum-blockies-base64";
 import { HelpCircle, Lock } from "lucide-react";
-import type {
-  AccountInfo,
-  EmailConnection,
-  LicenseStatus,
-  WhitelistEntry,
+import {
+  FREE_TIER_SYNC_DAYS,
+  type AccountInfo,
+  type EmailConnection,
+  type LicenseStatus,
+  type WhitelistEntry,
 } from "@shared/types";
 import { useLicense, useRefreshLicense } from "../context/LicenseContext";
 import {
@@ -425,7 +426,7 @@ export default function Settings(): JSX.Element {
                 <span>{account.totalMessages.toLocaleString()}</span>
 
                 <span className="text-base-content/50">Sync period</span>
-                <span>{license.active ? "Full history" : "30 days"}</span>
+                <span>{license.active ? "Full history" : `${FREE_TIER_SYNC_DAYS} days`}</span>
               </div>
 
               {(account.providerType === "gmail" ||

@@ -226,7 +226,7 @@ export default async function Home() {
             Download {SITE_CONFIG.NAME}
           </h2>
           <p className="text-lg opacity-80 mb-8">
-            Free to try. All features included for 30 days.
+            Free to try. All features included for 90 days.
           </p>
 
           <div className="max-w-2xl mx-auto mb-4">
@@ -355,7 +355,7 @@ export default async function Home() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-success">✓</span>
-                    <span>30-day email scan</span>
+                    <span>90-day email scan</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-success">✓</span>

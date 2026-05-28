@@ -295,7 +295,7 @@ async function runIncrementalSync(
 
   const isFirstRun = !syncState.quick_sync_done_at;
 
-  // First run window: licensed users get 1 year, free users get 30 days.
+  // First run window: licensed users get 1 year, free users get 90 days.
   // Subsequent runs use last_sync_at so the window size only matters on first run.
   const syncDays = licensed ? LICENSED_SYNC_DAYS : FREE_TIER_SYNC_DAYS;
   const since = syncState.last_sync_at
@@ -532,7 +532,7 @@ export async function runSync(licensedOverride?: boolean): Promise<void> {
       licensed = licenseStatus.active && (await hasValidLicense());
     }
 
-    // Phase 1: Incremental sync (always runs — window is 30d free / 365d licensed on first run)
+    // Phase 1: Incremental sync (always runs — window is 90d free / 365d licensed on first run)
     await runIncrementalSync(provider, licensed);
 
     // Phase 2: Historical headers-only sync (licensed users only, walks back to year 2000)
