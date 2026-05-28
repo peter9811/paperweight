@@ -64,9 +64,9 @@ export default async function Home() {
           <p className="text-accent mb-8 text-lg">
             Your inbox knows where your data lives.
           </p>
-          <Link href="/#download" className="btn btn-primary btn-lg">
+          <a href="#download" className="btn btn-primary btn-lg">
             Download for free
-          </Link>
+          </a>
           <p className="mt-4 text-sm opacity-60">macOS · Windows · Linux</p>
         </div>
       </section>
@@ -380,9 +380,9 @@ export default async function Home() {
                 </ul>
 
                 <div className="mt-auto">
-                  <Link href="/#download" className="btn btn-soft btn-block">
+                  <a href="#download" className="btn btn-soft btn-block">
                     Download free
-                  </Link>
+                  </a>
                 </div>
               </div>
 

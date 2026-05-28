@@ -68,9 +68,9 @@ export default async function GdprGeneratorPage({
                   </p>
                 </div>
               </div>
-              <Link href="/#download" className="btn btn-primary md:shrink-0">
+              <a href="/#download" className="btn btn-primary md:shrink-0">
                 Download Paperweight
-              </Link>
+              </a>
             </div>
           </div>
         </div>

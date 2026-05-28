@@ -258,7 +258,7 @@ export function Generator({ initialState, initialAction }: GeneratorProps) {
               <div className="space-y-2">
                 <p className="text-sm font-medium">Organization *</p>
                 <p className="text-xs opacity-70">
-                  <Link href="/#download" className="link">Try our App</Link> to automatically detect every company that has ever emailed
+                  <a href="/#download" className="link">Try our App</a> to automatically detect every company that has ever emailed
                   you.
                 </p>
                 <div className="relative">

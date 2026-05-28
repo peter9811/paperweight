@@ -26,7 +26,7 @@ export function TakeActionCards({ title = "Take Action" }: TakeActionCardsProps)
             </p>
           </div>
         </Link>
-        <Link
+        <a
           href="/#download"
           className="card border border-info/30 bg-base-300 shadow-lg transition-colors hover:border-info/55"
         >
@@ -41,7 +41,7 @@ export function TakeActionCards({ title = "Take Action" }: TakeActionCardsProps)
               Scan your inbox to find other accounts linked to exposed data.
             </p>
           </div>
-        </Link>
+        </a>
       </div>
     </section>
   );

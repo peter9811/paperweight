@@ -74,9 +74,9 @@ export default function RootLayout(props: PropsWithChildren) {
                         )}
                       </ul>
                     </div>
-                    <Link href="/#download" className="btn btn-primary btn-sm">
+                    <a href="/#download" className="btn btn-primary btn-sm">
                       Download
-                    </Link>
+                    </a>
                     <Link
                       href={SITE_CONFIG.GITHUB_URL}
                       target="_blank"
