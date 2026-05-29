@@ -81,7 +81,7 @@ export function getBreach(slug: string): BreachContent | null {
   return readBreachFile(slug)?.content ?? null;
 }
 
-export function getBreachedCompanies(since = "2024-01-01"): BreachRecord[] {
+export function getBreachedCompanies(): BreachRecord[] {
   return getBreachSlugs()
     .map((slug) => {
       const breachFile = getBreachFile(slug);
@@ -93,7 +93,6 @@ export function getBreachedCompanies(since = "2024-01-01"): BreachRecord[] {
       };
     })
     .filter((row): row is BreachRecord => row !== undefined)
-    .filter((row) => row.breach_date >= since)
     .sort((a, b) => b.pwn_count - a.pwn_count);
 }
 

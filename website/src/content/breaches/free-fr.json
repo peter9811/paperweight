@@ -19,6 +19,7 @@
     "modified_date": "2025-05-27T07:03:21Z",
     "pwn_count": 13926173,
     "description": "In October 2024, <a href=\"https://www.bleepingcomputer.com/news/security/free-frances-second-largest-isp-confirms-data-breach-after-leak/\" target=\"_blank\" rel=\"noopener\">French ISP \"Free\" suffered a data breach</a> which was subsequently posted for sale and later, leaked publicly. The data included 14M unique email addresses along with names, physical addresses, phone numbers, genders, dates of birth and for many records, IBAN bank account numbers. Free advised that the numbers were \"not enough to make a direct debit from a bank\".",
+    "attribution": "drussellx",
     "logo_path": "https://logos.haveibeenpwned.com/FreeMobile.png",
     "data_classes": [
       "Bank account numbers",

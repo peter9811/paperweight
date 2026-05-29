@@ -136,12 +136,12 @@ function buildIndexItem(breach: BreachRecord): BreachIndexItem {
 }
 
 function buildMetadata(breach: BreachRecord) {
-  const title = `${breach.title} Data Breach - What to Do`;
+  const title = `${breach.title} Data Breach - What to do`;
   const year = breach.breach_date.slice(0, 4);
   const description =
     breach.pwn_count > 0
-      ? `${formatCount(breach.pwn_count)} records exposed in the ${breach.title} breach (${year}). Find out what data was leaked and what steps to take now.`
-      : `Records exposed in the ${breach.title} breach (${year}) have not been disclosed. Find out what data was leaked and what steps to take now.`;
+      ? `${formatCount(breach.pwn_count)} records exposed in the ${breach.title} breach (${year}). Find out what data was leaked and the steps to take to protect yourself.`
+      : `Records exposed in the ${breach.title} breach (${year}) have not been disclosed. Find out what data was leaked and the steps to take to protect yourself.`;
   return { title, description };
 }
 
@@ -210,10 +210,74 @@ function buildBreachModel(
   };
 }
 
-export function getBreachIndexItems(since = "2024-01-01"): BreachIndexItem[] {
-  return getBreachedCompanies(since)
+export function getBreachIndexItems(): BreachIndexItem[] {
+  return getBreachedCompanies()
     .sort((a, b) => b.breach_date.localeCompare(a.breach_date))
     .map(buildIndexItem);
+}
+
+/** Number of related breaches surfaced on a breach detail page. */
+export const RELATED_LIMIT = 3;
+
+function resolveDpaName(breach: BreachRecord): string | undefined {
+  const enforcement = getEnforcementBySlug(breach.slug);
+  const dpa =
+    findDpaByAddress(breach.address ?? null, enforcement[0]?.dpa_country) ??
+    findDpaByDomain(breach.domain);
+  return dpa?.dpaName;
+}
+
+/**
+ * Ranks other breaches by how related they are to `slug`, to build an internal
+ * link network between breach pages. Signals, strongest first:
+ *   +5 same attacker (attribution)  · +4 same data protection authority
+ *   +3 shared category              · +1 per shared data class (max +3)
+ *   +1 breaches within ~90 days of each other
+ * Sorted by score, then recency. Falls back to most-recent if nothing scores,
+ * so every page links to at least `limit` others.
+ */
+export function getRelatedBreaches(
+  slug: string,
+  limit = RELATED_LIMIT,
+): BreachIndexItem[] {
+  const all = getBreachedCompanies();
+  const target = all.find((b) => b.slug === slug);
+  if (!target) return [];
+
+  const targetDpa = resolveDpaName(target);
+  const targetCategories = new Set(target.categories);
+  const targetClasses = new Set(target.data_classes);
+  const targetTime = new Date(target.breach_date).getTime();
+
+  const scored = all
+    .filter((b) => b.slug !== slug)
+    .map((breach) => {
+      let score = 0;
+      if (target.attribution && breach.attribution === target.attribution) {
+        score += 5;
+      }
+      if (targetDpa && resolveDpaName(breach) === targetDpa) score += 4;
+      if (breach.categories.some((c) => targetCategories.has(c))) score += 3;
+      const shared = breach.data_classes.filter((d) =>
+        targetClasses.has(d),
+      ).length;
+      score += Math.min(shared, 3);
+      const days =
+        Math.abs(targetTime - new Date(breach.breach_date).getTime()) /
+        86_400_000;
+      if (days <= 90) score += 1;
+      return { breach, score };
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.breach.breach_date.localeCompare(a.breach.breach_date),
+    );
+
+  const ranked = scored.filter((s) => s.score > 0);
+  return (ranked.length ? ranked : scored)
+    .slice(0, limit)
+    .map((s) => buildIndexItem(s.breach));
 }
 
 export function getBreachPageModel(slug: string): BreachPageModel | null {

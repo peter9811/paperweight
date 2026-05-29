@@ -21,6 +21,7 @@
     "modified_date": "2026-04-12T02:01:11Z",
     "pwn_count": 1736520,
     "description": "In March 2026, <a href=\"https://cybernews.com/security/hallmark-data-breach-shinyhunters/\" target=\"_blank\" rel=\"noopener\">Hallmark suffered an alleged breach and subsequent extortion</a> after attackers gained access to data stored within Salesforce. The data was later published after the extortion deadline passed, exposing 1.7M unique email addresses across both Hallmark and the Hallmark+ streaming service, along with names, phone numbers, physical addresses and support tickets.",
+    "attribution": "ShinyHunters",
     "logo_path": "https://logos.haveibeenpwned.com/Hallmark.png",
     "data_classes": [
       "Email addresses",

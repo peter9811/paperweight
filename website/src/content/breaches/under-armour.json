@@ -20,7 +20,7 @@
     "modified_date": "2026-01-21T06:42:44Z",
     "pwn_count": 72742892,
     "description": "In November 2025, <a href=\"https://hackread.com/everest-ransomware-under-armour-users-data/\" target=\"_blank\" rel=\"noopener\">the Everest ransomware group claimed Under Armour as a victim and attempted to extort a ransom</a>, alleging they had obtained access to 343GB of data. <a href=\"https://x.com/justabreach/status/2012933753853657288\" target=\"_blank\" rel=\"noopener\">In January 2026, customer data from the incident was published publicly on a popular hacking forum</a>, including 72M email addresses. Many records also contained additional personal information such as names, dates of birth, genders, geographic locations and purchase information.",
-    "attribution": "DeHashed",
+    "attribution": "Everest",
     "logo_path": "https://logos.haveibeenpwned.com/UnderArmour.png",
     "data_classes": [
       "Dates of birth",

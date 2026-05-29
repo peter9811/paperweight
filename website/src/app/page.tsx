@@ -38,7 +38,7 @@ const OTHER_EMAIL_PRESETS = PROVIDER_PRESETS.filter(
 
 export default async function Home() {
   const latestVersion = await getLatestVersion();
-  const latestBreaches = getBreachIndexItems("1900-01-01")
+  const latestBreaches = getBreachIndexItems()
     .slice(0, 3)
     .map((breach) => {
       const daysAgo = dayjs().diff(breach.breachDate, "day");

@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ breach: null });
   }
 
-  const breach = getBreachedCompanies("2000-01-01").find((entry) => {
+  const breach = getBreachedCompanies().find((entry) => {
     const breachDomain = normalizeDomain(entry.domain);
     return (
       breachDomain === domain ||

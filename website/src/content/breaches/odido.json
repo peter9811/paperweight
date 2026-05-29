@@ -24,6 +24,7 @@
     "pwn_count": 6077025,
     "description": "In February 2026, Dutch telco <a href=\"https://www.rtl.nl/nieuws/binnenland/artikel/5571885/odido-data-dark-web-oud-klanten-shinyhunters\" target=\"_blank\" rel=\"noopener\">Odido was the victim of a data breach and subsequent extortion attempt</a>. Shortly after, a total of 6M unique email addresses were published across four separate data releases over consecutive days. The exposed data includes names, physical addresses, phone numbers, bank account numbers, dates of birth, customer service notes and passport, driver’s licence and European national ID numbers. <a href=\"https://www.odido.nl/veiligheid\" target=\"_blank\" rel=\"noopener\">Odido has published a disclosure notice</a> including an FAQ to support affected customers.",
     "disclosure_url": "https://www.odido.nl/veiligheid",
+    "attribution": "ShinyHunters",
     "logo_path": "https://logos.haveibeenpwned.com/Odido.png",
     "data_classes": [
       "Bank account numbers",

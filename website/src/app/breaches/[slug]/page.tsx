@@ -4,7 +4,13 @@ import Link from "next/link";
 import { marked } from "marked";
 import { ExternalLink } from "lucide-react";
 import { TakeActionCards } from "@/components/TakeActionCards";
-import { formatCount, formatFine, getBreachPageModel } from "@/utils/breach";
+import { RelatedBreaches } from "@/components/RelatedBreaches";
+import {
+  formatCount,
+  formatFine,
+  getBreachPageModel,
+  getRelatedBreaches,
+} from "@/utils/breach";
 import { getBreachSlugs } from "@/utils/content";
 import { buildMetadata } from "@/utils/seo";
 
@@ -65,6 +71,7 @@ export default async function BreachPage({
     return <p>Breach page not found.</p>;
   }
 
+  const related = getRelatedBreaches(slug);
   const breachOverviewHtml = await marked.parse(model.content.incidentAndExposure);
   const timelineAndCauseHtml = model.content.timelineAndCause
     ? await marked.parse(model.content.timelineAndCause)
@@ -291,6 +298,8 @@ export default async function BreachPage({
               </div>
             </div>
           </section>
+
+          <RelatedBreaches breaches={related} />
 
           {model.dpa ? (
             <section className="space-y-4">

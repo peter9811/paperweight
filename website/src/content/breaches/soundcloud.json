@@ -25,6 +25,7 @@
     "pwn_count": 29815722,
     "description": "In December 2025, <a href=\"https://au.pcmag.com/security/114866/hackers-steal-limited-data-on-20-of-soundcloud-users\" target=\"_blank\" rel=\"noopener\">SoundCloud announced it had discovered unauthorised activity on its platform</a>. The incident allowed an attacker to map publicly available SoundCloud profile data to email addresses for approximately 20% of its users. The impacted data included 30M unique email addresses, names, usernames, avatars, follower and following counts and, in some cases, the user’s country. The attackers later attempted to extort SoundCloud before publicly releasing the data the following month.",
     "disclosure_url": "https://soundcloud.com/playbook-articles/protecting-our-users-and-our-service",
+    "attribution": "ShinyHunters",
     "logo_path": "https://logos.haveibeenpwned.com/SoundCloud.png",
     "data_classes": [
       "Avatars",

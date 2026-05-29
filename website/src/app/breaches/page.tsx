@@ -13,7 +13,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default function BreachIndexPage() {
-  const breaches = getBreachIndexItems("1900-01-01");
+  const breaches = getBreachIndexItems();
 
   return (
     <section className="container mx-auto px-4 py-12">
