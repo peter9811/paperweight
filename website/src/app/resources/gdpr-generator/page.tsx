@@ -5,8 +5,16 @@ import { buildGdprGeneratorInitialState } from "@shared/gdpr/resolution";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import companies from "@/data/companies.generated.json";
+import { buildMetadata } from "@/utils/seo";
 
 export const GDPR_GENERATOR_LAST_UPDATED = "2026-04-02";
+
+export const metadata = buildMetadata({
+  title: "Free GDPR Request Generator",
+  description:
+    "Generate a ready-to-send GDPR access or deletion request in seconds. Free, private, and tailored to the company holding your data.",
+  path: "/resources/gdpr-generator",
+});
 
 interface GdprGeneratorPageProps {
   searchParams: Promise<{

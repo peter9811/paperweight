@@ -1,21 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SubpageHeader } from "@/components/SubpageHeader";
-import { SITE_CONFIG } from "@/utils/config";
 import { formatCount, getBreachIndexItems } from "@/utils/breach";
+import { buildMetadata } from "@/utils/seo";
 import { ChevronRight } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: "Data Breaches - What to do if your data was exposed",
+export const metadata: Metadata = buildMetadata({
+  title: "Data Breaches - What to do if you're exposed",
   description:
-    "Guides on recent data breaches. Find out what happened, what data was exposed and what you can do.",
-  openGraph: {
-    title: "Data Breaches - What to do if your data was exposed",
-    description:
-      "Guides on recent data breaches. Find out what happened, what data was exposed and what you can do.",
-    url: `${SITE_CONFIG.URL}/breaches`,
-  },
-};
+    "Guides on recent data breaches. Find out what happened, what personal data was exposed, and the exact steps to take to protect yourself.",
+  path: "/breaches",
+});
 
 export default function BreachIndexPage() {
   const breaches = getBreachIndexItems("1900-01-01");

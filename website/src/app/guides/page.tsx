@@ -2,20 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { SubpageHeader } from "@/components/SubpageHeader";
-import { SITE_CONFIG } from "@/utils/config";
 import { GetGuides } from "@/utils/guides";
+import { buildMetadata } from "@/utils/seo";
 
-export const metadata: Metadata = {
-  title: "Guides",
+export const metadata: Metadata = buildMetadata({
+  title: "Privacy Guides: GDPR, Data Removal & Cleanup",
   description:
     "Take back control of your personal data, guides on GDPR rights, comparing data removal and email cleanup tools, and shrinking your footprint.",
-  openGraph: {
-    title: "Guides",
-    description:
-      "Take back control of your personal data, guides on GDPR rights, comparing data removal and email cleanup tools, and shrinking your footprint.",
-    url: `${SITE_CONFIG.URL}/guides`,
-  },
-};
+  path: "/guides",
+});
 
 export default function Page() {
   const guides = GetGuides();

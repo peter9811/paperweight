@@ -3,20 +3,15 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, FileText, History, Shield, TriangleAlert } from "lucide-react";
 import { SubpageHeader } from "@/components/SubpageHeader";
-import { SITE_CONFIG } from "@/utils/config";
 import { RESOURCE_NAV_LINKS } from "@/utils/nav";
+import { buildMetadata } from "@/utils/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "Resources & Tools",
   description:
     "GDPR request tools, data protection authority contacts, breach overviews, and other practical privacy resources.",
-  openGraph: {
-    title: "Resources & Tools",
-    description:
-      "GDPR request tools, data protection authority contacts, breach overviews, and other practical privacy resources.",
-    url: `${SITE_CONFIG.URL}/resources`,
-  },
-};
+  path: "/resources",
+});
 
 interface ResourceCard {
   title: string;

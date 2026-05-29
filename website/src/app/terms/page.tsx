@@ -1,8 +1,16 @@
 import dayjs from "dayjs";
 import { SubpageHeader } from "@/components/SubpageHeader";
 import { SITE_CONFIG } from "@/utils/config";
+import { buildMetadata } from "@/utils/seo";
 
 export const TERMS_LAST_UPDATED = "2026-02-09";
+
+export const metadata = buildMetadata({
+  title: "Terms of Service",
+  description:
+    "The terms for using Paperweight, including licensing, acceptable use, and limitations of liability. Read these before you start.",
+  path: "/terms",
+});
 
 export default async function TermsPage() {
   const lastUpdated = dayjs(TERMS_LAST_UPDATED).format("MMM DD, YYYY");

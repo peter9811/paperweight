@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import { marked } from "marked";
 import { TakeActionCards } from "@/components/TakeActionCards";
 import { GetGuide, GetGuides } from "@/utils/guides";
-import { SITE_CONFIG } from "@/utils/config";
+import { buildMetadata } from "@/utils/seo";
 
 export function generateStaticParams() {
   return GetGuides().map((guide) => ({ slug: guide.slug }));
@@ -19,21 +19,13 @@ export async function generateMetadata({
   const guide = GetGuide(slug);
   if (!guide) return {};
 
-  const title = guide.title;
-  const description = guide.description ?? "Guide";
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: `${SITE_CONFIG.URL}/guides/${slug}`,
-    },
-    twitter: {
-      card: "summary_large_image",
-    },
-  };
+  return buildMetadata({
+    title: guide.title,
+    description: guide.description ?? "Guide",
+    path: `/guides/${slug}`,
+    type: "article",
+    hasOwnImage: true,
+  });
 }
 
 export default async function Page({

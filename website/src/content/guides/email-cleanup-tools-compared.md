@@ -4,8 +4,6 @@ description: A privacy-first comparison of email unsubscribe and inbox cleanup t
 last_updated: 2026-05-21
 ---
 
-# Email cleanup tools compared
-
 Most inbox cleanup tools do one of two things. They unsubscribe you from mailing lists, or they filter unwanted mail into a folder so you stop seeing it. Both leave the underlying situation in place. The company still has your email address, your account, and whatever data it collected when you signed up.
 
 Paperweight starts from the same inbox and goes a step further. It identifies the companies holding your data and helps you request deletion, not just unsubscribe. It also runs locally, so your inbox is never uploaded to anyone's servers. This page compares the established cleanup tools for people considering an alternative, and is honest about where each one fits.

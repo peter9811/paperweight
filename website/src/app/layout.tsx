@@ -12,7 +12,10 @@ import { Github, TwitterIcon } from "lucide-react";
 
 export const metadata: Metadata = {
   applicationName: SITE_CONFIG.NAME,
-  title: `${SITE_CONFIG.NAME} | ${SITE_CONFIG.TAGLINE}`,
+  title: {
+    default: `${SITE_CONFIG.NAME} | ${SITE_CONFIG.TAGLINE}`,
+    template: `%s | ${SITE_CONFIG.NAME}`,
+  },
   description: SITE_CONFIG.DESCRIPTION,
   metadataBase: new URL(SITE_CONFIG.URL),
   openGraph: {

@@ -3,8 +3,16 @@ import { marked } from "marked";
 import { SubpageHeader } from "@/components/SubpageHeader";
 import { getReleases } from "@/lib/github";
 import { SITE_CONFIG } from "@/utils/config";
+import { buildMetadata } from "@/utils/seo";
 
 export const dynamic = "force-static";
+
+export const metadata = buildMetadata({
+  title: "Changelog & Release Notes",
+  description:
+    "Track new Paperweight releases, features, and fixes as we build tools to help you map and delete your digital footprint.",
+  path: "/changelog",
+});
 
 export default async function ChangelogPage() {
   const releases = await getReleases().catch(() => null);

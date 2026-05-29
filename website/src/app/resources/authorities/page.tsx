@@ -1,11 +1,18 @@
-import dayjs from "dayjs";
 import type { Dpa } from "@shared/gdpr/types";
 import { EU_DPAS, NON_EU_DPAS } from "@shared/gdpr/resolution";
 import { AlertTriangle } from "lucide-react";
 import { SubpageHeader } from "@/components/SubpageHeader";
 import Link from "next/link";
+import { buildMetadata } from "@/utils/seo";
 
 export const AUTHORITIES_LAST_UPDATED = "2026-04-02";
+
+export const metadata = buildMetadata({
+  title: "Data Protection Authorities by Country",
+  description:
+    "Find your national data protection authority and the contact details to escalate a GDPR complaint when a company ignores your request.",
+  path: "/resources/authorities",
+});
 
 interface InfoRowProps {
   label: string;

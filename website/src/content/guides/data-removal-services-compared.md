@@ -4,8 +4,6 @@ description: A privacy-first comparison of the major data removal services, what
 last_updated: 2026-05-21
 ---
 
-# Data removal services compared
-
 Data brokers and people-search sites are one half of your data footprint. The companies you have signed up for over the years are the other half. The services on this page address the first half. Paperweight addresses the second. Most people benefit from doing both.
 
 Before the comparison itself, there is one thing worth understanding about how most of these services actually work, because it changes how you should think about them.

@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { TakeActionCards } from "@/components/TakeActionCards";
 import { formatCount, formatFine, getBreachPageModel } from "@/utils/breach";
 import { getBreachSlugs } from "@/utils/content";
-import { SITE_CONFIG } from "@/utils/config";
+import { buildMetadata } from "@/utils/seo";
 
 interface InfoRowProps {
   label: string;
@@ -45,18 +45,13 @@ export async function generateMetadata({
   if (!model) return {};
 
   const { title, description } = model.metadata;
-  return {
+  return buildMetadata({
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      url: `${SITE_CONFIG.URL}/breaches/${slug}`,
-    },
-    twitter: {
-      card: "summary_large_image",
-    },
-  };
+    path: `/breaches/${slug}`,
+    type: "article",
+    hasOwnImage: true,
+  });
 }
 
 export default async function BreachPage({
