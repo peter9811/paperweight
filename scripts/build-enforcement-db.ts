@@ -3,8 +3,10 @@
  *
  * Run manually: yarn build:enforcement
  *
- * Source: https://www.enforcementtracker.com
+ * Source: https://www.enforcementtracker.com (embedded JSON in homepage HTML)
  * Data: 3,000+ GDPR enforcement decisions across EU/EEA/UK jurisdictions (2018–present)
+ *
+ * Fallback: data/enforcement/source.json (refresh with `yarn build:enforcement -- --write-cache`)
  *
  * Enrichment during build:
  *   1. controller_slug  — auto-normalized from controller name (strip legal/geo suffixes, lowercase, hyphenate)
@@ -17,23 +19,51 @@
  */
 
 import Database from "better-sqlite3";
-import { mkdirSync, unlinkSync, existsSync, readFileSync } from "fs";
+import { mkdirSync, unlinkSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { EU_DPAS, NON_EU_DPAS } from "../src/shared/gdpr/resolution.js";
 
 const __dirname = join(fileURLToPath(import.meta.url), "..");
 const ROOT = resolve(__dirname, "..");
-const ET_URL = "https://www.enforcementtracker.com/data4sfk3j4hwe324kjhfdwe.json";
+const ET_HOME_URL = "https://www.enforcementtracker.com/";
+const ET_FETCH_HEADERS = {
+  "User-Agent": "Paperweight/1.0 (build script; +https://paperweight.email)",
+};
 const OUT_PATH = join(ROOT, "resources", "enforcement.db");
 const COMPANIES_DB_PATH = join(ROOT, "resources", "companies.db");
 const OVERRIDES_PATH = join(ROOT, "data", "enforcement", "overrides.json");
+const CACHED_SOURCE_PATH = join(ROOT, "data", "enforcement", "source.json");
 
-// Raw row from enforcementtracker.com JSON (array of arrays)
-// [0] empty, [1] ETid, [2] country (HTML), [3] authority, [4] date,
-// [5] fine (EUR string), [6] controller (HTML), [7] sector,
-// [8] articles, [9] violation_type, [10] description, [11] source (HTML), [12] url (HTML)
-type EtRow = string[];
+// Compact case object embedded in enforcementtracker.com homepage (v2 site)
+interface EtCase {
+  e: number;
+  c: string;
+  C: string;
+  a: string;
+  d: string;
+  f?: number | null;
+  p: string;
+  s: string;
+  r: string;
+  t: string;
+  u: string;
+}
+
+interface EnforcementSourceRow {
+  etid: string;
+  country: string;
+  authority: string | null;
+  decision_date: string | null;
+  fine_eur: number | null;
+  fine_text: string | null;
+  controller: string | null;
+  sector: string | null;
+  articles_violated: string | null;
+  violation_type: string | null;
+  description: string | null;
+  source_url: string | null;
+}
 
 // Legal entity suffixes to strip during slug normalization
 const LEGAL_SUFFIXES =
@@ -60,30 +90,82 @@ function isCountrySpecificSlug(slug: string): boolean {
 
 // ------- Parsing helpers --------
 
-function stripHtml(s: string | null | undefined): string {
-  if (!s) return "";
-  return s.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+function formatEtid(id: number): string {
+  return `ETid-${id}`;
 }
 
-function parseCountry(s: string): string {
-  // "<img ...><br />AUSTRIA" → "Austria"
-  const text = stripHtml(s);
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+function formatFineText(fineEur: number | null): string | null {
+  if (fineEur == null) return null;
+  return `EUR ${fineEur.toLocaleString("en-US")}`;
 }
 
-function parseFineEur(s: string): number | null {
-  if (!s) return null;
-  const lower = s.toLowerCase();
-  if (lower.includes("unknown") || lower.includes("only intention")) return null;
-  // Take the last number found (handles "Multiple fines totaling EUR 178,000")
-  const matches = s.replace(/,/g, "").match(/\d+/g);
-  if (!matches) return null;
-  return parseInt(matches[matches.length - 1], 10);
+function etCaseToRow(row: EtCase): EnforcementSourceRow {
+  const fineEur = typeof row.f === "number" ? row.f : null;
+  return {
+    etid: formatEtid(row.e),
+    country: row.C,
+    authority: row.a || null,
+    decision_date: row.d && row.d.toLowerCase() !== "unknown" ? row.d : null,
+    fine_eur: fineEur,
+    fine_text: formatFineText(fineEur),
+    controller: row.p || null,
+    sector: row.s || null,
+    articles_violated: row.r || null,
+    violation_type: row.t || null,
+    description: row.t || null,
+    source_url: row.u || null,
+  };
 }
 
-function parseSourceUrl(s: string): string | null {
-  const match = s?.match(/href=["']([^"']+)["']/i);
-  return match ? match[1] : null;
+async function fetchCasesFromSite(): Promise<EtCase[]> {
+  const res = await fetch(ET_HOME_URL, { headers: ET_FETCH_HEADERS });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch enforcement tracker: ${res.status} ${res.statusText}`);
+  }
+  const html = await res.text();
+  const match = html.match(
+    /<script type="application\/json" id="et-cases"[^>]*>([\s\S]*?)<\/script>/,
+  );
+  if (!match) {
+    throw new Error("Enforcement tracker homepage did not include et-cases JSON");
+  }
+  const cases = JSON.parse(match[1]) as EtCase[];
+  if (!Array.isArray(cases) || cases.length === 0) {
+    throw new Error("Enforcement tracker et-cases JSON was empty or invalid");
+  }
+  return cases;
+}
+
+function loadCachedCases(): EtCase[] {
+  if (!existsSync(CACHED_SOURCE_PATH)) {
+    throw new Error(`Cached source not found at ${CACHED_SOURCE_PATH}`);
+  }
+  const cases = JSON.parse(readFileSync(CACHED_SOURCE_PATH, "utf-8")) as EtCase[];
+  if (!Array.isArray(cases) || cases.length === 0) {
+    throw new Error(`Cached source at ${CACHED_SOURCE_PATH} was empty or invalid`);
+  }
+  return cases;
+}
+
+async function loadCases(writeCache: boolean): Promise<EtCase[]> {
+  try {
+    const cases = await fetchCasesFromSite();
+    console.log(`Fetched ${cases.length} enforcement records from ${ET_HOME_URL}`);
+    if (writeCache) {
+      mkdirSync(join(ROOT, "data", "enforcement"), { recursive: true });
+      writeFileSync(CACHED_SOURCE_PATH, JSON.stringify(cases));
+      console.log(`Wrote cache to ${CACHED_SOURCE_PATH}`);
+    }
+    return cases;
+  } catch (err) {
+    if (existsSync(CACHED_SOURCE_PATH)) {
+      console.warn(
+        `Live fetch failed (${err instanceof Error ? err.message : err}) — using ${CACHED_SOURCE_PATH}`,
+      );
+      return loadCachedCases();
+    }
+    throw err;
+  }
 }
 
 /**
@@ -220,15 +302,9 @@ function buildDpaMatcher(): (enforcementCountry: string) => string | null {
 // ------- Main --------
 
 async function main() {
-  const res = await fetch(ET_URL);
-  if (!res.ok) {
-    console.error(`Failed to fetch enforcement data: ${res.status} ${res.statusText}`);
-    process.exit(1);
-  }
-
-  const json = await res.json() as { data: EtRow[] };
-  const rows = json.data;
-  console.log(`Loaded ${rows.length} enforcement records`);
+  const writeCache = process.argv.includes("--write-cache");
+  const cases = await loadCases(writeCache);
+  const rows = cases.map(etCaseToRow);
 
   // Load manual overrides (etid → company_slug, or etid → null to reject a false positive)
   const overridesRaw = existsSync(OVERRIDES_PATH)
@@ -286,9 +362,9 @@ async function main() {
 
   const insertMany = db.transaction(() => {
     for (const row of rows) {
-      const etid = stripHtml(row[1]) || null;
-      const controller = stripHtml(row[6]) || null;
-      const country = parseCountry(row[2]);
+      const etid = row.etid || null;
+      const controller = row.controller;
+      const country = row.country;
       const controllerSlug = controller ? toControllerSlug(controller) : null;
 
       // Resolve company_slug + match_confidence
@@ -328,19 +404,19 @@ async function main() {
         etid,
         country,
         dpa_country: dpaCountry,
-        authority: stripHtml(row[3]) || null,
-        decision_date: stripHtml(row[4]) || null,
-        fine_eur: parseFineEur(row[5]),
-        fine_text: stripHtml(row[5]) || null,
+        authority: row.authority,
+        decision_date: row.decision_date,
+        fine_eur: row.fine_eur,
+        fine_text: row.fine_text,
         controller,
         controller_slug: controllerSlug,
         company_slug: companySlug,
         match_confidence: matchConfidence,
-        sector: stripHtml(row[7]) || null,
-        articles_violated: stripHtml(row[8]) || null,
-        violation_type: stripHtml(row[9]) || null,
-        description: stripHtml(row[10]) || null,
-        source_url: parseSourceUrl(row[11]),
+        sector: row.sector,
+        articles_violated: row.articles_violated,
+        violation_type: row.violation_type,
+        description: row.description,
+        source_url: row.source_url,
       });
     }
   });
