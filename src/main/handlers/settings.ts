@@ -12,11 +12,13 @@ function getSettings() {
   const registered = !!getSetting("registeredAt");
   const autoLaunchVal = getGlobalSetting("autoLaunch");
   const launchMinimizedVal = getGlobalSetting("launchMinimized");
+  const colorTheme = getGlobalSetting("colorTheme");
   return {
     providerType: creds?.providerType || "none",
     autoLaunch: autoLaunchVal !== undefined ? autoLaunchVal : registered,
     launchMinimized: launchMinimizedVal !== undefined ? launchMinimizedVal : registered,
     userName: getSetting("userName") ?? "",
+    colorTheme: colorTheme === "silk" ? "silk" : "dim",
   };
 }
 
@@ -67,6 +69,13 @@ export function registerSettingsHandlers(): void {
     if (s.userName !== undefined) {
       if (typeof s.userName !== "string") throw new Error("Invalid userName");
       saveSetting("userName", s.userName);
+    }
+
+    if (s.colorTheme !== undefined) {
+      if (s.colorTheme !== "dim" && s.colorTheme !== "silk") {
+        throw new Error("Invalid colorTheme");
+      }
+      saveGlobalSetting("colorTheme", s.colorTheme);
     }
   });
 

@@ -5,6 +5,7 @@ interface GlobalSettings {
   autoLaunch?: boolean;
   launchMinimized?: boolean;
   activeAccount?: string;
+  colorTheme?: "dim" | "silk";
 }
 
 export function getSettingsPath(): string {

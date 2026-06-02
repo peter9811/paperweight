@@ -269,6 +269,7 @@ export interface Settings {
   autoLaunch?: boolean;
   launchMinimized?: boolean;
   userName?: string;
+  colorTheme?: "dim" | "silk";
 }
 
 export interface LicenseStatus {

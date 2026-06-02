@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import makeBlockie from "ethereum-blockies-base64";
-import { HelpCircle, Lock } from "lucide-react";
+import { HelpCircle, Lock, Moon, Sun } from "lucide-react";
 import {
   FREE_TIER_SYNC_DAYS,
   type AccountInfo,
@@ -20,6 +20,11 @@ import {
 } from "../components/ProviderConnect";
 import ServerSettingsModal from "../components/ServerSettingsModal";
 import { useAccounts } from "../hooks/useAccounts";
+import {
+  readColorTheme,
+  setColorTheme as applyAndSaveColorTheme,
+  type ColorTheme,
+} from "../utils/colorTheme";
 
 type AddAccountView = "provider" | "gmail" | "microsoft" | "apple" | "proton" | "imap";
 
@@ -31,6 +36,7 @@ export default function Settings(): JSX.Element {
   const [connection, setConnection] = useState<EmailConnection | null>(null);
   const [autoLaunch, setAutoLaunch] = useState(() => !!window.api.getSettings().autoLaunch);
   const [launchMinimized, setLaunchMinimized] = useState(() => !!window.api.getSettings().launchMinimized);
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(readColorTheme);
   const [showResyncModal, setShowResyncModal] = useState(false);
   const [licenseKey, setLicenseKey] = useState("");
   const license = useLicense();
@@ -65,6 +71,10 @@ export default function Settings(): JSX.Element {
     window.api.getEmailConnection().then(setConnection);
     fetchWhitelist();
   }, []);
+
+  useEffect(() => {
+    setColorTheme(readColorTheme());
+  }, [location.pathname]);
 
   useEffect(() => {
     const state = location.state as { openServerSettings?: boolean } | null;
@@ -213,13 +223,35 @@ export default function Settings(): JSX.Element {
     <div className="space-y-6 max-w-xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Settings</h1>
-        <button
-          className="btn btn-ghost btn-sm btn-square"
-          onClick={() => navigate("/support")}
-          title="Support"
-        >
-          <HelpCircle className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-square"
+            title={
+              colorTheme === "dim"
+                ? "Switch to light mode"
+                : "Switch to dark mode"
+            }
+            onClick={() => {
+              const theme: ColorTheme = colorTheme === "dim" ? "silk" : "dim";
+              setColorTheme(theme);
+              applyAndSaveColorTheme(theme);
+            }}
+          >
+            {colorTheme === "dim" ? (
+              <Moon className="w-4 h-4" />
+            ) : (
+              <Sun className="w-4 h-4" />
+            )}
+          </button>
+          <button
+            className="btn btn-ghost btn-sm btn-square"
+            onClick={() => navigate("/support")}
+            title="Support"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Section 1: Accounts */}
