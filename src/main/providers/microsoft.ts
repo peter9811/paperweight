@@ -16,6 +16,16 @@ const GRAPH_ME_BASE = `${GRAPH_API_BASE}/me`;
 
 const SCOPES = "offline_access openid profile User.Read Mail.ReadWrite Mail.Send";
 
+// Request immutable IDs on every Graph call. Default Graph message IDs change when a message
+// moves between folders; immutable IDs stay stable for the message's lifetime in the mailbox,
+// giving a reliable handle across folder moves and syncs. The header is per-request, so it
+// must be sent on every call (list, get, batch, move, patch). Stored message IDs are therefore
+// in immutable format. (Containers like mailFolders don't have immutable IDs — their regular
+// IDs were always constant — so parentFolderId comparisons are unaffected.)
+const IMMUTABLE_ID_HEADER: Record<string, string> = {
+  Prefer: 'IdType="ImmutableId"',
+};
+
 // --- PKCE helpers ---
 
 function generateCodeVerifier(): string {
@@ -172,7 +182,7 @@ async function graphGet(url: string, extraHeaders?: Record<string, string>): Pro
   while (true) {
     const token = await getValidAccessToken();
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, ...extraHeaders },
+      headers: { Authorization: `Bearer ${token}`, ...IMMUTABLE_ID_HEADER, ...extraHeaders },
     });
 
     if (response.status === 429 && attempt < GRAPH_MAX_RETRIES) {
@@ -199,6 +209,7 @@ async function graphPost(url: string, body: Record<string, unknown>): Promise<un
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        ...IMMUTABLE_ID_HEADER,
       },
       body: JSON.stringify(body),
     });
@@ -227,6 +238,7 @@ async function graphPatch(url: string, body: Record<string, unknown>): Promise<v
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        ...IMMUTABLE_ID_HEADER,
       },
       body: JSON.stringify(body),
     });
@@ -255,6 +267,7 @@ interface GraphHeader {
 
 interface GraphMessage {
   id: string;
+  parentFolderId?: string;
   receivedDateTime: string;
   subject?: string;
   bodyPreview?: string;
@@ -290,6 +303,8 @@ async function graphBatchGetMessages(
     id: String(index),
     method: "GET",
     url: `/me/messages/${messageId}?$select=${select}`,
+    // Per-request header — each $batch sub-request must opt into immutable IDs itself.
+    headers: IMMUTABLE_ID_HEADER,
   }));
 
   // Retry the whole batch if any per-response status is 429.
@@ -397,6 +412,30 @@ export async function fetchMicrosoftProfileEmail(accessToken: string): Promise<s
 // --- Provider ---
 
 export function createMicrosoftProvider(): EmailProvider {
+  // Folders excluded from the all-mail scan (Junk/Deleted/Sent/Drafts). Resolved once per
+  // sync session and cached. /me/messages spans every folder, so we filter by parentFolderId.
+  let excludedFolderIds: Set<string> | undefined;
+
+  async function getExcludedFolderIds(): Promise<Set<string>> {
+    if (excludedFolderIds) return excludedFolderIds;
+    const ids = new Set<string>();
+    for (const name of ["junkemail", "deleteditems", "sentitems", "drafts"]) {
+      try {
+        const folder = (await graphGet(
+          `${GRAPH_ME_BASE}/mailFolders/${name}?$select=id`
+        )) as { id?: string };
+        if (folder.id) ids.add(folder.id);
+      } catch {
+        // Folder may not exist on this mailbox — ignore.
+      }
+    }
+    // Only cache a non-empty result. If every lookup failed (transient error), retry next
+    // call rather than caching an empty set that would let Junk/Deleted/Sent/Drafts through
+    // for the rest of the sync session.
+    if (ids.size > 0) excludedFolderIds = ids;
+    return ids;
+  }
+
   return {
     type: "microsoft",
 
@@ -420,7 +459,12 @@ export function createMicrosoftProvider(): EmailProvider {
         const filterParts = [`receivedDateTime ge ${since.toISOString()}`];
         if (until) filterParts.push(`receivedDateTime lt ${until.toISOString()}`);
 
-        const url = new URL(`${GRAPH_ME_BASE}/mailFolders/inbox/messages`);
+        // All folders (not just inbox). This is a progress-bar estimate only, never used for
+        // correctness. It does NOT apply the Junk/Deleted/Sent/Drafts exclusion the listing
+        // does (there's no cheap server-side count for "all mail minus these folders"), so with
+        // a large Sent/Trash the total can run well above the messages actually processed — the
+        // bar may stall below 100%. Acceptable for an estimate; revisit if it misleads users.
+        const url = new URL(`${GRAPH_ME_BASE}/messages`);
         url.searchParams.set("$count", "true");
         url.searchParams.set("$filter", filterParts.join(" and "));
         url.searchParams.set("$top", "1");
@@ -452,8 +496,9 @@ export function createMicrosoftProvider(): EmailProvider {
         const filterParts = [`receivedDateTime ge ${since.toISOString()}`];
         if (until) filterParts.push(`receivedDateTime lt ${until.toISOString()}`);
 
-        const url = new URL(`${GRAPH_ME_BASE}/mailFolders/inbox/messages`);
-        url.searchParams.set("$select", "id,receivedDateTime,from,subject,bodyPreview");
+        // All folders (not just inbox). parentFolderId lets us drop Junk/Deleted/Sent/Drafts.
+        const url = new URL(`${GRAPH_ME_BASE}/messages`);
+        url.searchParams.set("$select", "id,parentFolderId,receivedDateTime,from,subject,bodyPreview");
         url.searchParams.set("$top", "100");
         url.searchParams.set("$filter", filterParts.join(" and "));
         listUrl = url.toString();
@@ -468,6 +513,17 @@ export function createMicrosoftProvider(): EmailProvider {
         return { messages: [] };
       }
 
+      // Exclude Junk/Deleted/Sent/Drafts (Spam/Trash are never synced; Sent/Drafts are
+      // self-authored and dropped downstream anyway — skip them here to save bandwidth).
+      const excluded = await getExcludedFolderIds();
+      const candidates = listResult.value.filter(
+        (m) => !m.parentFolderId || !excluded.has(m.parentFolderId)
+      );
+
+      if (candidates.length === 0) {
+        return { messages: [], nextPageToken: listResult["@odata.nextLink"] };
+      }
+
       const emailMessages: EmailMessage[] = [];
       // headersOnly: fetch internetMessageHeaders + metadata but skip body.
       // Equivalent to Gmail's format=metadata — List-Unsubscribe is available,
@@ -480,11 +536,11 @@ export function createMicrosoftProvider(): EmailProvider {
       const BATCH_SIZE = 20;
       // Small pause between batch calls to avoid hitting the per-app request limit.
       const BATCH_INTER_DELAY_MS = 200;
-      for (let i = 0; i < listResult.value.length; i += BATCH_SIZE) {
+      for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
         if (i > 0) {
           await new Promise((r) => setTimeout(r, BATCH_INTER_DELAY_MS));
         }
-        const chunk = listResult.value.slice(i, i + BATCH_SIZE);
+        const chunk = candidates.slice(i, i + BATCH_SIZE);
         const chunkIds = chunk.map((m) => m.id);
 
         try {
@@ -551,70 +607,13 @@ export function createMicrosoftProvider(): EmailProvider {
       }
     },
 
-    // --- Checkpoint sync (Graph Delta Query) ---
-    //
-    // Checkpoint is the full @odata.deltaLink URL returned by the Graph delta endpoint.
-    // On first run: $deltaToken=latest gives a deltaLink representing "now" with no data transfer.
-    // On subsequent runs: iterate from deltaLink — only changed messages (added + @removed) returned.
-    // Any error (expired token, too many changes) → return null → caller falls back to date-based.
-
-    async getCurrentSyncCheckpoint(): Promise<string | undefined> {
-      try {
-        // $deltaToken=latest returns an empty page with just the deltaLink immediately —
-        // no need to paginate through the entire mailbox.
-        const url = new URL(`${GRAPH_ME_BASE}/mailFolders/inbox/messages/delta`);
-        url.searchParams.set("$deltaToken", "latest");
-        url.searchParams.set("$select", "id");
-
-        const result = (await graphGet(url.toString())) as {
-          "@odata.deltaLink"?: string;
-        };
-        return result["@odata.deltaLink"] ?? undefined;
-      } catch {
-        return undefined;
-      }
-    },
-
-    async listChanges(checkpoint: string): Promise<{
-      addedIds: string[];
-      deletedIds: string[];
-      nextCheckpoint: string;
-    } | null> {
-      try {
-        const addedIds: string[] = [];
-        const deletedIds: string[] = [];
-        let nextLink: string | undefined = checkpoint;
-        let deltaLink = checkpoint;
-
-        while (nextLink) {
-          const result = (await graphGet(nextLink)) as {
-            value?: Array<{ id: string; "@removed"?: unknown }>;
-            "@odata.nextLink"?: string;
-            "@odata.deltaLink"?: string;
-          };
-
-          for (const item of result.value ?? []) {
-            if (item["@removed"]) {
-              deletedIds.push(item.id);
-            } else {
-              addedIds.push(item.id);
-            }
-          }
-
-          if (result["@odata.nextLink"]) {
-            nextLink = result["@odata.nextLink"];
-          } else {
-            deltaLink = result["@odata.deltaLink"] ?? checkpoint;
-            nextLink = undefined;
-          }
-        }
-
-        return { addedIds, deletedIds, nextCheckpoint: deltaLink };
-      } catch {
-        // Expired or invalidated delta token → fall back to date-based sync
-        return null;
-      }
-    },
+    // No removal tracking for Microsoft (adds-only, like IMAP). Graph delta is per-folder
+    // only, so an inbox delta's `@removed` can't distinguish "moved to Archive" (still in
+    // our all-mail scope — keep) from "deleted/trashed" (remove), and default Graph IDs
+    // change on move so we can't re-resolve to disambiguate. Using it would wrongly delete
+    // archived mail. Externally-deleted messages therefore linger until a full re-sync —
+    // the same limitation IMAP has. Proper deletion handling needs a reconciliation pass
+    // (see docs/lessons.md → "Our sync has no deletion reconciliation").
 
     async disconnect(): Promise<void> {
       // Nothing to clean up for Graph API

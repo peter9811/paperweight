@@ -37,13 +37,14 @@ export interface EmailProvider {
   ): Promise<{ messages: EmailMessage[]; nextPageToken?: string }>;
   getMessage(messageId: string): Promise<EmailMessage>;
 
-  // Checkpoint-based incremental sync (optional — Gmail History API, future IMAP UID/CONDSTORE)
-  // Returns null from listChanges when the checkpoint is expired → caller falls back to date-based.
-  getCurrentSyncCheckpoint?(): Promise<string | undefined>;
-  listChanges?(checkpoint: string): Promise<{
-    addedIds: string[];
-    deletedIds: string[];
-    nextCheckpoint: string;
+  // Removal tracking (optional). Adds always come from date-range listMessages();
+  // this is a removal-only delta layer (Gmail History API, Microsoft inbox delta).
+  // listRemovals returns null when the cursor has expired → caller re-baselines via
+  // getRemovalCursor() and skips that gap's removals.
+  getRemovalCursor?(): Promise<string | undefined>;
+  listRemovals?(cursor: string): Promise<{
+    removedIds: string[];
+    nextCursor: string;
   } | null>;
 
   // Write operations

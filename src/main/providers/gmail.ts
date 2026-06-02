@@ -260,8 +260,9 @@ function extractPartByMime(parts: MimePart[], mime: string): string {
 
 interface GmailHistoryEntry {
   id: string;
-  messagesAdded?: Array<{ message: { id: string } }>;
   messagesDeleted?: Array<{ message: { id: string } }>;
+  // A message gaining the TRASH/SPAM label is a removal from our all-mail scope.
+  labelsAdded?: Array<{ message: { id: string }; labelIds?: string[] }>;
 }
 
 interface GmailHistoryResponse {
@@ -490,7 +491,13 @@ export function createGmailProvider(): EmailProvider {
       await gmailApiPost("/messages/send", { raw: encoded });
     },
 
-    async getCurrentSyncCheckpoint(): Promise<string | undefined> {
+    // --- Removal tracking (History API) ---
+    // historyId is a mailbox-wide version cursor (not a date), so removals of messages of
+    // any age are reported, as long as the cursor is within Gmail's retention (~1 week of
+    // inactivity → 404 → re-baseline). Adds come from the date-range listMessages() path,
+    // so this consumes removals only: permanent deletions and TRASH/SPAM label additions.
+
+    async getRemovalCursor(): Promise<string | undefined> {
       try {
         const profile = (await gmailApiFetch("/profile")) as { historyId?: string };
         return profile.historyId;
@@ -499,38 +506,36 @@ export function createGmailProvider(): EmailProvider {
       }
     },
 
-    async listChanges(checkpoint: string): Promise<{
-      addedIds: string[];
-      deletedIds: string[];
-      nextCheckpoint: string;
+    async listRemovals(cursor: string): Promise<{
+      removedIds: string[];
+      nextCursor: string;
     } | null> {
-      const addedIds = new Set<string>();
-      const deletedIds = new Set<string>();
+      const removedIds = new Set<string>();
       let pageToken: string | undefined;
-      let nextCheckpoint = checkpoint;
+      let nextCursor = cursor;
 
       try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
-          const params: Record<string, string> = {
-            startHistoryId: checkpoint,
-            labelId: "INBOX",
-          };
+          // No labelId filter → all-mail (matches the add path's scope).
+          const params: Record<string, string> = { startHistoryId: cursor };
           if (pageToken) params.pageToken = pageToken;
 
           const result = (await gmailApiFetch("/history", params)) as GmailHistoryResponse;
 
           // Always update to the latest historyId returned, even if history array is empty
-          nextCheckpoint = result.historyId;
+          nextCursor = result.historyId;
 
+          // Adds come from the date-range path, so collect removals only: permanent
+          // deletions and messages that gained the TRASH or SPAM label.
           for (const entry of result.history ?? []) {
-            for (const item of entry.messagesAdded ?? []) {
-              addedIds.add(item.message.id);
-              deletedIds.delete(item.message.id);
-            }
             for (const item of entry.messagesDeleted ?? []) {
-              deletedIds.add(item.message.id);
-              addedIds.delete(item.message.id);
+              removedIds.add(item.message.id);
+            }
+            for (const item of entry.labelsAdded ?? []) {
+              if (item.labelIds?.some((l) => l === "TRASH" || l === "SPAM")) {
+                removedIds.add(item.message.id);
+              }
             }
           }
 
@@ -546,11 +551,7 @@ export function createGmailProvider(): EmailProvider {
         throw err;
       }
 
-      return {
-        addedIds: Array.from(addedIds),
-        deletedIds: Array.from(deletedIds),
-        nextCheckpoint,
-      };
+      return { removedIds: Array.from(removedIds), nextCursor };
     },
 
     async disconnect(): Promise<void> {

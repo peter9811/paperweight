@@ -54,8 +54,8 @@ function createImapClient(): ImapFlow {
 }
 
 function parseImapUid(messageId: string): number {
-  // Message IDs are stored as "imap-{uid}" or "imap-sent-{uid}"
-  const match = messageId.match(/^imap-(?:sent-)?(\d+)$/);
+  // Message IDs are stored as "imap-{uid}" — uid is unique within the scanned mailbox.
+  const match = messageId.match(/^imap-(\d+)$/);
   if (!match) throw new Error(`Invalid IMAP message ID: ${messageId}`);
   return parseInt(match[1], 10);
 }
@@ -242,8 +242,33 @@ async function findSpecialMailbox(
   );
 }
 
+// Matches an "all mail" virtual mailbox by name when the server doesn't flag it with the
+// \All special-use attribute. Anchored to avoid matching user folders like "Allies".
+const ALL_MAIL_NAME = /^(?:\[Gmail\]\/)?All\s*(?:Mail|Items)$/i;
+
+// Resolve the single mailbox to scan. Prefer the \All special-use mailbox (Gmail/Proton/
+// Fastmail expose a deduplicated "all mail" superset); fall back to an anchored name match;
+// otherwise INBOX (classic servers where each message lives in exactly one folder).
+async function resolveScanMailbox(client: ImapFlow): Promise<string> {
+  const mailboxes = await client.list();
+  return (
+    mailboxes.find((m) => m.specialUse === "\\All")?.path ||
+    mailboxes.find((m) => ALL_MAIL_NAME.test(m.path))?.path ||
+    "INBOX"
+  );
+}
+
 export function createImapProvider(): EmailProvider {
   let client: ImapFlow | undefined;
+  let scanMailbox: string | undefined;
+
+  // The mailbox we scan for adds and operate on for per-message actions. Resolved once
+  // per connection: \All ("all mail") when available, else INBOX.
+  async function getScanMailbox(): Promise<string> {
+    if (!client) throw new Error("Not connected to IMAP");
+    if (!scanMailbox) scanMailbox = await resolveScanMailbox(client);
+    return scanMailbox;
+  }
 
   return {
     type: "imap",
@@ -271,7 +296,7 @@ export function createImapProvider(): EmailProvider {
       if (until) return undefined;
       if (!client) return undefined;
       try {
-        const status = await client.status("INBOX", { messages: true });
+        const status = await client.status(await getScanMailbox(), { messages: true });
         return status.messages;
       } catch {
         return undefined;
@@ -298,9 +323,9 @@ export function createImapProvider(): EmailProvider {
         ? { headers: true as const, uid: true, size: true }
         : { source: { start: 0, maxLength: 100_000 }, envelope: true, uid: true, size: true };
 
-      const lock = await client.getMailboxLock("INBOX");
+      const lock = await client.getMailboxLock(await getScanMailbox());
       const messages: EmailMessage[] = [];
-      const inboxEstimate =
+      const estimate =
         (client.mailbox as { exists?: number })?.exists ?? undefined;
 
       try {
@@ -310,50 +335,13 @@ export function createImapProvider(): EmailProvider {
               ? await parseImapHeadersOnly(msg as { uid: number; headers?: Buffer; size?: number }, "imap-")
               : await parseImapMessage(msg as { uid: number; source?: Buffer; size?: number }, "imap-");
             if (parsed) messages.push(parsed);
-            onProgress?.(messages.length, inboxEstimate);
+            onProgress?.(messages.length, estimate);
           } catch (err) {
             syncLog.error(`Failed to parse IMAP message ${msg.uid}:`, err instanceof Error ? err.message : String(err));
           }
         }
       } finally {
         lock.release();
-      }
-
-      // Also fetch from Sent folder
-      try {
-        const sentMailbox = await findSpecialMailbox(client, "\\Sent", [
-          "Sent",
-          "Sent Items",
-          "Sent Messages",
-          "INBOX.Sent",
-        ]);
-
-        if (sentMailbox) {
-          const sentLock = await client.getMailboxLock(sentMailbox.path);
-          const sentEstimate =
-            (client.mailbox as { exists?: number })?.exists ?? undefined;
-          const combinedEstimate =
-            inboxEstimate !== undefined && sentEstimate !== undefined
-              ? inboxEstimate + sentEstimate
-              : undefined;
-          try {
-            for await (const msg of client.fetch(criteria, fetchOptions)) {
-              try {
-                const parsed = headersOnly
-                  ? await parseImapHeadersOnly(msg as { uid: number; headers?: Buffer; size?: number }, "imap-sent-")
-                  : await parseImapMessage(msg as { uid: number; source?: Buffer; size?: number }, "imap-sent-");
-                if (parsed) messages.push(parsed);
-                onProgress?.(messages.length, combinedEstimate);
-              } catch (err) {
-                syncLog.error(`Failed to parse IMAP sent message ${msg.uid}:`, err instanceof Error ? err.message : String(err));
-              }
-            }
-          } finally {
-            sentLock.release();
-          }
-        }
-      } catch (err) {
-        syncLog.error("Failed to fetch Sent folder:", err instanceof Error ? err.message : String(err));
       }
 
       return { messages };
@@ -363,20 +351,8 @@ export function createImapProvider(): EmailProvider {
       if (!client) throw new Error("Not connected to IMAP");
 
       const uid = parseImapUid(messageId);
-      const isSent = messageId.startsWith("imap-sent-");
 
-      const mailboxPath = isSent
-        ? (
-            await findSpecialMailbox(client, "\\Sent", [
-              "Sent",
-              "Sent Items",
-              "Sent Messages",
-              "INBOX.Sent",
-            ])
-          )?.path || "INBOX"
-        : "INBOX";
-
-      const lock = await client.getMailboxLock(mailboxPath);
+      const lock = await client.getMailboxLock(await getScanMailbox());
       try {
         const msg = await client.fetchOne(
           `${uid}`,
@@ -385,10 +361,7 @@ export function createImapProvider(): EmailProvider {
         );
         if (!msg) throw new Error(`Message ${messageId} not found`);
 
-        const parsed = await parseImapMessage(
-          msg,
-          isSent ? "imap-sent-" : "imap-"
-        );
+        const parsed = await parseImapMessage(msg, "imap-");
         if (!parsed) throw new Error(`Message ${messageId} could not be parsed`);
         return parsed;
       } finally {
@@ -408,7 +381,7 @@ export function createImapProvider(): EmailProvider {
       ]);
       if (!trashMailbox) throw new Error("Trash folder not found");
 
-      const lock = await client.getMailboxLock("INBOX");
+      const lock = await client.getMailboxLock(await getScanMailbox());
       try {
         await client.messageMove(`${uid}`, trashMailbox.path, { uid: true });
       } finally {
@@ -429,7 +402,7 @@ export function createImapProvider(): EmailProvider {
       ]);
       if (!spamMailbox) throw new Error("Spam/Junk folder not found");
 
-      const lock = await client.getMailboxLock("INBOX");
+      const lock = await client.getMailboxLock(await getScanMailbox());
       try {
         await client.messageMove(`${uid}`, spamMailbox.path, { uid: true });
       } finally {
@@ -441,7 +414,7 @@ export function createImapProvider(): EmailProvider {
       if (!client) throw new Error("Not connected to IMAP");
 
       const uid = parseImapUid(messageId);
-      const lock = await client.getMailboxLock("INBOX");
+      const lock = await client.getMailboxLock(await getScanMailbox());
       try {
         if (isRead) {
           await client.messageFlagsAdd(`${uid}`, ["\\Seen"], { uid: true });
@@ -482,90 +455,17 @@ export function createImapProvider(): EmailProvider {
       }
     },
 
-    // --- Checkpoint sync (UID-based) ---
-    //
-    // Checkpoint format: "{uidValidity}:{lastUid}"
-    //   uidValidity — IMAP UIDVALIDITY value; changes when the server renumbers UIDs (rare).
-    //                 Mismatch → return null → caller falls back to date-based sync.
-    //   lastUid     — highest UID processed in the previous sync.
-    //
-    // Deletion tracking requires CONDSTORE/EXPUNGE — not implemented. deletedIds is always [].
-    // Consequence: messages deleted from the email client linger in our DB until a date-based
-    // fallback occurs (UIDVALIDITY change or first sync after install). Acceptable for now.
-
-    async getCurrentSyncCheckpoint(): Promise<string | undefined> {
-      if (!client) return undefined;
-      try {
-        const status = await client.status("INBOX", { uidNext: true, uidValidity: true });
-        if (status.uidNext == null || status.uidValidity == null) return undefined;
-        // uidNext is the next UID to be assigned; lastUid = uidNext - 1.
-        // ImapFlow uses bigint for these — convert to number (safe: IMAP UIDs are 32-bit unsigned).
-        const uidValidity = Number(status.uidValidity);
-        const lastUid = Number(status.uidNext) - 1;
-        return `${uidValidity}:${lastUid}`;
-      } catch {
-        return undefined;
-      }
-    },
-
-    async listChanges(checkpoint: string): Promise<{
-      addedIds: string[];
-      deletedIds: string[];
-      nextCheckpoint: string;
-    } | null> {
-      if (!client) return null;
-
-      const parts = checkpoint.split(":");
-      if (parts.length !== 2) return null;
-      const expectedValidity = parseInt(parts[0], 10);
-      const lastUid = parseInt(parts[1], 10);
-      if (isNaN(expectedValidity) || isNaN(lastUid)) return null;
-
-      const lock = await client.getMailboxLock("INBOX");
-      try {
-        // client.mailbox is boolean | MailboxObject; uidValidity/uidNext are bigint in ImapFlow
-        const mailbox = (client.mailbox as unknown) as
-          | { uidValidity?: bigint | number; uidNext?: bigint | number }
-          | boolean
-          | undefined;
-
-        if (!mailbox || typeof mailbox === "boolean") return null;
-
-        const currentValidity = mailbox.uidValidity != null ? Number(mailbox.uidValidity) : undefined;
-        const currentUidNext = mailbox.uidNext != null ? Number(mailbox.uidNext) : lastUid + 1;
-
-        // UIDVALIDITY changed → server renumbered UIDs → force full date-based re-sync
-        if (currentValidity !== expectedValidity) return null;
-
-        if (currentUidNext <= lastUid + 1) {
-          // No new messages since last sync
-          return { addedIds: [], deletedIds: [], nextCheckpoint: checkpoint };
-        }
-
-        const addedIds: string[] = [];
-        for await (const msg of client.fetch(
-          `${lastUid + 1}:*`,
-          { uid: true },
-          { uid: true }
-        )) {
-          addedIds.push(`imap-${msg.uid}`);
-        }
-
-        return {
-          addedIds,
-          deletedIds: [],
-          nextCheckpoint: `${expectedValidity}:${currentUidNext - 1}`,
-        };
-      } finally {
-        lock.release();
-      }
-    },
+    // No removal tracking for IMAP: adds come from the date-range listMessages() path, and
+    // there is no cheap server-side deletion signal (would need CONDSTORE/QRESYNC). Messages
+    // deleted in another client linger until a full re-sync. getRemovalCursor/listRemovals
+    // are intentionally not implemented.
 
     async disconnect(): Promise<void> {
       if (client) {
         await client.logout();
         client = undefined;
       }
+      scanMailbox = undefined;
     },
   };
 }

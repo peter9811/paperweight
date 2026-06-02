@@ -140,6 +140,22 @@ export function markUnsubscribed(email: string): void {
   ).run(email);
 }
 
+// Re-derive per-message "unsubscribed" status from the durable action_log. Used after the
+// all-mail migration cleared messages (IMAP/Microsoft): vendors and action_log survive the
+// wipe, so we re-apply the vendor-wide unsubscribed flag to the re-synced messages.
+// Vendor-keyed — no dependency on old message IDs. Idempotent.
+export function reapplyUnsubscribedFromActionLog(): void {
+  const d = getDb();
+  d.prepare(
+    `UPDATE messages SET status = 'unsubscribed'
+     WHERE unsubscribe_url IS NOT NULL
+       AND status IS NULL
+       AND vendor_id IN (
+         SELECT DISTINCT vendor_id FROM action_log WHERE action_type = 'unsubscribed'
+       )`
+  ).run();
+}
+
 export function getMessageById(id: string): Message | undefined {
   const d = getDb();
   return d.prepare("SELECT * FROM messages WHERE id = ?").get(id) as

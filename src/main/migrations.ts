@@ -1,9 +1,16 @@
 import { join } from "path";
 import { existsSync, unlinkSync } from "fs";
 import { app } from "electron";
+import Database from "better-sqlite3";
 import { APP_CONFIG } from "@shared/config";
 import { findPresetByHost } from "@shared/email-providers";
-import { accountTag, listAccounts, loadCredentials, saveCredentials } from "./credentials";
+import {
+  accountTag,
+  emailToFileKey,
+  listAccounts,
+  loadCredentials,
+  saveCredentials,
+} from "./credentials";
 import { testSmtpConnection } from "./providers/smtp";
 import { appLog } from "./utils/log";
 
@@ -76,10 +83,72 @@ async function backfillSmtpFromPreset(): Promise<void> {
 }
 
 /**
+ * v0.4 — all-mail scan. Providers now scan all mail (not just inbox), so existing accounts
+ * re-sync to pick up archived/foldered messages. Idempotent per account via the
+ * `migration:all-mail-scope` settings marker. Preserves vendors, action_log, whitelist,
+ * settings and license — only message rows and sync cursors are touched. Runs before
+ * initDb(), so each account DB is opened directly with no active connection.
+ *
+ *   - imap & microsoft: message IDs can't be reconciled across the scope change (IMAP UIDs
+ *     change namespace INBOX → All Mail; Microsoft switches to immutable IDs, a different
+ *     format than stored), so clear messages, reset cursors, zero denormalized vendor counts,
+ *     and flag re-derivation of `unsubscribed` status from action_log on the next sync.
+ *   - gmail: already all-mail with stable IDs; marker only.
+ */
+function migrateScanScopeAllMail(): void {
+  const userData = app.getPath("userData");
+
+  for (const acc of listAccounts()) {
+    const creds = loadCredentials(acc.email);
+    if (!creds) continue;
+
+    const dbPath = join(userData, `${emailToFileKey(acc.email)}.db`);
+    if (!existsSync(dbPath)) continue;
+
+    let db: Database.Database | undefined;
+    try {
+      db = new Database(dbPath);
+
+      const done = db
+        .prepare("SELECT 1 FROM settings WHERE key = 'migration:all-mail-scope'")
+        .get();
+      if (done) continue;
+
+      if (creds.providerType === "imap" || creds.providerType === "microsoft") {
+        db.exec(`
+          DELETE FROM messages;
+          UPDATE vendors SET message_count = 0, sender_count = 0;
+          UPDATE sync_state SET
+            last_sync_at = NULL, next_page_token = NULL, quick_sync_done_at = NULL,
+            historical_cursor = NULL, historical_done = 0, sync_checkpoint = NULL
+          WHERE id = 1;
+          INSERT OR REPLACE INTO settings (key, value) VALUES ('migration:reapply-unsub', '1');
+        `);
+      }
+      // gmail: marker only — existing data already includes archived mail.
+
+      db.prepare(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('migration:all-mail-scope', '1')"
+      ).run();
+      appLog.info(
+        `migrations: all-mail scope applied for [${accountTag(acc.email)}] (${creds.providerType})`
+      );
+    } catch (err) {
+      appLog.warn(
+        `migrations: all-mail scope failed for [${accountTag(acc.email)}]: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      db?.close();
+    }
+  }
+}
+
+/**
  * Run all migrations in order. Safe to call on every launch — each migration
  * is a no-op if there is nothing to do.
  */
 export async function runMigrations(): Promise<void> {
   cleanupStaleFiles();
   await backfillSmtpFromPreset();
+  migrateScanScopeAllMail();
 }

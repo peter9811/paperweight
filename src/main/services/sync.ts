@@ -14,8 +14,14 @@ import {
   classifyMessageType,
   deleteMessagesByIds,
   getVendorIdsByMessageIds,
+  reapplyUnsubscribedFromActionLog,
 } from "./messages";
-import { getSetting, hasValidLicense, getLicenseStatus } from "./settings";
+import {
+  getSetting,
+  saveSetting,
+  hasValidLicense,
+  getLicenseStatus,
+} from "./settings";
 import { loadCredentials } from "../credentials";
 import { getProvider } from "../providers/ProviderFactory";
 import { APP_CONFIG } from "@shared/config";
@@ -63,6 +69,10 @@ const HISTORICAL_SYNC_DAYS = process.env.HISTORICAL_SYNC_DAYS
   : undefined;
 
 const HISTORICAL_CHUNK_DAYS = 90;
+
+// Incremental date-range adds re-query a small window before last_sync_at so a message
+// arriving around the previous sync boundary isn't missed. INSERT OR IGNORE dedupes the overlap.
+const INCREMENTAL_OVERLAP_MS = 60 * 60 * 1000; // 1 hour
 
 // Production floor: covers all consumer email back to Hotmail/early IMAP era.
 const HISTORICAL_FLOOR_DATE = new Date("1995-01-01");
@@ -198,85 +208,68 @@ function emitProgress(partial: Omit<SyncStatus, "lastSyncAt">) {
   _progressEmitter(currentStatus);
 }
 
-// --- Checkpoint sync ---
-// Uses provider-native change tracking (Gmail History API, future IMAP UID/CONDSTORE).
-// Returns true on success, false when checkpoint expired (caller falls back to date-based).
+// --- Removal pass ---
+// Adds always come from the date-range listMessages() path. This pass applies *removals*
+// (deletions / moves out of the tracked folder) reported by a provider's delta layer
+// (Gmail History API, Microsoft inbox delta). The cursor is stored in
+// sync_state.sync_checkpoint. On expiry the cursor is re-baselined and that gap's removals
+// are skipped (graceful). Providers without listRemovals (IMAP) are a no-op.
 
-async function runCheckpointSync(
-  provider: EmailProvider,
-  checkpoint: string,
-): Promise<boolean> {
-  emitProgress({
-    running: true,
-    progress: 0,
-    total: 0,
-    message: "Checking for new messages...",
-    phase: "incremental",
-  });
+async function runRemovalPass(provider: EmailProvider): Promise<void> {
+  if (!provider.listRemovals || !provider.getRemovalCursor) return;
 
-  const result = await provider.listChanges!(checkpoint);
-  if (!result) return false; // checkpoint expired
+  const cursor = getSyncState().sync_checkpoint;
 
-  const changed = result.addedIds.length + result.deletedIds.length;
-  if (changed > 0) {
-    syncLog.info(
-      `Checkpoint sync: ${result.addedIds.length} added, ${result.deletedIds.length} deleted`,
-    );
+  // First time: establish a baseline so the next sync reports removals since now.
+  if (!cursor) {
+    const baseline = await provider.getRemovalCursor();
+    if (baseline) updateSyncState({ sync_checkpoint: baseline });
+    return;
   }
 
-  // Fetch and process new messages
-  if (result.addedIds.length > 0) {
-    const messages: EmailMessage[] = [];
-    let fetched = 0;
-
-    for (const id of result.addedIds) {
-      try {
-        const msg = await provider.getMessage(id);
-        messages.push(msg);
-        fetched++;
-        emitProgress({
-          running: true,
-          progress: fetched,
-          total: result.addedIds.length,
-          message: "Processing new messages...",
-          phase: "incremental",
-        });
-      } catch (err) {
-        syncLog.warn(`Failed to fetch added message ${id}:`, err);
-      }
-    }
-
-    if (messages.length > 0) {
-      processMessagesBatch(messages);
-      recomputeAllVendorFlags();
-      matchVendorCompanies();
-      categorizeVendors();
-    }
+  const result = await provider.listRemovals(cursor);
+  if (!result) {
+    // Cursor expired → re-baseline; removals during the gap are not tracked.
+    const baseline = await provider.getRemovalCursor();
+    updateSyncState({ sync_checkpoint: baseline ?? null });
+    syncLog.info("Removal cursor expired, re-baselined (gap removals skipped)");
+    return;
   }
 
-  // Remove messages deleted from Gmail, then refresh stats for affected vendors
-  if (result.deletedIds.length > 0) {
-    const affectedVendorIds = getVendorIdsByMessageIds(result.deletedIds);
-    deleteMessagesByIds(result.deletedIds);
+  if (result.removedIds.length > 0) {
+    syncLog.info(`Removal pass: ${result.removedIds.length} removed`);
+    const affectedVendorIds = getVendorIdsByMessageIds(result.removedIds);
+    deleteMessagesByIds(result.removedIds);
     for (const vid of affectedVendorIds) {
       updateVendorStats(vid);
       updateVendorFlags(vid);
     }
   }
 
-  const now = Date.now();
-  updateSyncState({
-    last_sync_at: now,
-    sync_checkpoint: result.nextCheckpoint,
-  });
-  currentStatus.lastSyncAt = now;
+  updateSyncState({ sync_checkpoint: result.nextCursor });
+}
 
-  return true;
+// --- Re-derivation after the all-mail migration ---
+// The IMAP all-mail switch clears messages (UIDs change namespace), but vendors and
+// action_log survive. Once the re-sync has repopulated messages, re-apply per-message
+// "unsubscribed" status from the action_log. Runs while the flag is set (idempotent);
+// cleared once backfill is complete (historical for licensed, first incremental for free).
+const REAPPLY_UNSUB_FLAG = "migration:reapply-unsub";
+
+function maybeReapplyUnsubscribed(licensed: boolean): void {
+  if (getSetting(REAPPLY_UNSUB_FLAG) !== "1") return;
+  reapplyUnsubscribedFromActionLog();
+  const syncState = getSyncState();
+  const backfillComplete = licensed
+    ? syncState.historical_done
+    : !!syncState.quick_sync_done_at;
+  if (backfillComplete) saveSetting(REAPPLY_UNSUB_FLAG, "0");
 }
 
 // --- Incremental sync ---
 // First run: fetches last FREE_TIER_SYNC_DAYS (free) or LICENSED_SYNC_DAYS (licensed) days.
-// Subsequent runs: uses checkpoint (History API) if available, else date-based since last_sync_at.
+// Subsequent runs: date-based since last_sync_at (minus a small overlap). Removals are
+// applied separately by runRemovalPass().
 
 async function runIncrementalSync(
   provider: EmailProvider,
@@ -284,22 +277,14 @@ async function runIncrementalSync(
 ): Promise<void> {
   const syncState = getSyncState();
 
-  // Fast path: checkpoint-based sync (Gmail History API)
-  if (provider.listChanges && syncState.sync_checkpoint) {
-    const used = await runCheckpointSync(provider, syncState.sync_checkpoint);
-    if (used) return;
-    syncLog.info(
-      "Sync checkpoint expired, falling back to date-based incremental",
-    );
-  }
-
   const isFirstRun = !syncState.quick_sync_done_at;
 
   // First run window: licensed users get 1 year, free users get 90 days.
-  // Subsequent runs use last_sync_at so the window size only matters on first run.
+  // Subsequent runs use last_sync_at (minus a small overlap) so the window size only
+  // matters on first run.
   const syncDays = licensed ? LICENSED_SYNC_DAYS : FREE_TIER_SYNC_DAYS;
   const since = syncState.last_sync_at
-    ? new Date(syncState.last_sync_at)
+    ? new Date(syncState.last_sync_at - INCREMENTAL_OVERLAP_MS)
     : new Date(Date.now() - syncDays * 86_400_000);
 
   syncLog.info(
@@ -385,14 +370,6 @@ async function runIncrementalSync(
     syncLog.info(
       `First incremental complete. Historical cursor initialised to ${since.toISOString()}`,
     );
-  }
-
-  // Capture sync checkpoint for next incremental (e.g. Gmail historyId)
-  if (provider.getCurrentSyncCheckpoint) {
-    const checkpoint = await provider.getCurrentSyncCheckpoint();
-    if (checkpoint) {
-      stateUpdate.sync_checkpoint = checkpoint;
-    }
   }
 
   updateSyncState(stateUpdate);
@@ -535,6 +512,10 @@ export async function runSync(licensedOverride?: boolean): Promise<void> {
     // Phase 1: Incremental sync (always runs — window is 90d free / 365d licensed on first run)
     await runIncrementalSync(provider, licensed);
 
+    // Phase 1.5: Apply removals (deletions / moves out of the tracked folder) for
+    // providers with a delta layer (Gmail, Microsoft). No-op for IMAP.
+    await runRemovalPass(provider);
+
     // Phase 2: Historical headers-only sync (licensed users only, walks back to year 2000)
     if (licensed) {
       const syncState = getSyncState();
@@ -567,6 +548,9 @@ export async function runSync(licensedOverride?: boolean): Promise<void> {
         );
       }
     }
+
+    // Re-derive "unsubscribed" message status after an all-mail migration re-sync.
+    maybeReapplyUnsubscribed(licensed);
 
     await provider.disconnect();
 
