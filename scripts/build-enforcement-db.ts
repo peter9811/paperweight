@@ -6,7 +6,10 @@
  * Source: https://www.enforcementtracker.com (embedded JSON in homepage HTML)
  * Data: 3,000+ GDPR enforcement decisions across EU/EEA/UK jurisdictions (2018–present)
  *
- * Fallback: data/enforcement/source.json (refresh with `yarn build:enforcement -- --write-cache`)
+ * Vendored snapshot (offline only): data/enforcement/source.json
+ *   - Refresh after a successful live fetch: `yarn build:enforcement -- --write-cache`
+ *   - Use only when the site is unreachable: `yarn build:enforcement -- --allow-cache`
+ *   - CI/release builds never pass --allow-cache; a failed live fetch fails the build.
  *
  * Enrichment during build:
  *   1. controller_slug  — auto-normalized from controller name (strip legal/geo suffixes, lowercase, hyphenate)
@@ -34,6 +37,18 @@ const OUT_PATH = join(ROOT, "resources", "enforcement.db");
 const COMPANIES_DB_PATH = join(ROOT, "resources", "companies.db");
 const OVERRIDES_PATH = join(ROOT, "data", "enforcement", "overrides.json");
 const CACHED_SOURCE_PATH = join(ROOT, "data", "enforcement", "source.json");
+const CACHE_META_PATH = join(ROOT, "data", "enforcement", "source.meta.json");
+
+interface CacheMeta {
+  fetchedAt: string;
+  recordCount: number;
+}
+
+interface LoadResult {
+  cases: EtCase[];
+  source: "live" | "cache";
+  cacheMeta?: CacheMeta;
+}
 
 // Compact case object embedded in enforcementtracker.com homepage (v2 site)
 interface EtCase {
@@ -136,6 +151,26 @@ async function fetchCasesFromSite(): Promise<EtCase[]> {
   return cases;
 }
 
+function readCacheMeta(): CacheMeta | undefined {
+  if (!existsSync(CACHE_META_PATH)) return undefined;
+  try {
+    return JSON.parse(readFileSync(CACHE_META_PATH, "utf-8")) as CacheMeta;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCacheFiles(cases: EtCase[]): void {
+  const meta: CacheMeta = {
+    fetchedAt: new Date().toISOString(),
+    recordCount: cases.length,
+  };
+  mkdirSync(join(ROOT, "data", "enforcement"), { recursive: true });
+  writeFileSync(CACHED_SOURCE_PATH, JSON.stringify(cases));
+  writeFileSync(CACHE_META_PATH, `${JSON.stringify(meta, null, 2)}\n`);
+  console.info(`Wrote vendored snapshot (${cases.length} records) to ${CACHED_SOURCE_PATH}`);
+}
+
 function loadCachedCases(): EtCase[] {
   if (!existsSync(CACHED_SOURCE_PATH)) {
     throw new Error(`Cached source not found at ${CACHED_SOURCE_PATH}`);
@@ -147,24 +182,45 @@ function loadCachedCases(): EtCase[] {
   return cases;
 }
 
-async function loadCases(writeCache: boolean): Promise<EtCase[]> {
+async function loadCases(options: {
+  writeCache: boolean;
+  allowCache: boolean;
+}): Promise<LoadResult> {
   try {
     const cases = await fetchCasesFromSite();
-    console.log(`Fetched ${cases.length} enforcement records from ${ET_HOME_URL}`);
-    if (writeCache) {
-      mkdirSync(join(ROOT, "data", "enforcement"), { recursive: true });
-      writeFileSync(CACHED_SOURCE_PATH, JSON.stringify(cases));
-      console.log(`Wrote cache to ${CACHED_SOURCE_PATH}`);
+    console.info(`Enforcement source: live (${cases.length} records from ${ET_HOME_URL})`);
+    if (options.writeCache) {
+      writeCacheFiles(cases);
     }
-    return cases;
+    return { cases, source: "live" };
   } catch (err) {
-    if (existsSync(CACHED_SOURCE_PATH)) {
-      console.warn(
-        `Live fetch failed (${err instanceof Error ? err.message : err}) — using ${CACHED_SOURCE_PATH}`,
+    const message = err instanceof Error ? err.message : String(err);
+    if (!options.allowCache) {
+      console.error(`Enforcement live fetch failed: ${message}`);
+      console.error(
+        "Build aborted. Release/CI builds require a live fetch. To use the vendored snapshot offline, pass --allow-cache.",
       );
-      return loadCachedCases();
+      process.exit(1);
     }
-    throw err;
+    if (!existsSync(CACHED_SOURCE_PATH)) {
+      console.error(`Enforcement live fetch failed: ${message}`);
+      console.error(`No vendored snapshot at ${CACHED_SOURCE_PATH}. Run with --write-cache after a successful fetch.`);
+      process.exit(1);
+    }
+    const cases = loadCachedCases();
+    const cacheMeta = readCacheMeta();
+    console.error(`Enforcement source: CACHE (live fetch failed: ${message})`);
+    if (cacheMeta) {
+      const ageDays = Math.floor(
+        (Date.now() - Date.parse(cacheMeta.fetchedAt)) / (24 * 60 * 60 * 1000),
+      );
+      console.error(
+        `Vendored snapshot: ${cacheMeta.recordCount} records, fetched ${cacheMeta.fetchedAt} (${ageDays} day(s) ago)`,
+      );
+    } else {
+      console.error(`Vendored snapshot: ${cases.length} records (no ${CACHE_META_PATH} — refresh with --write-cache)`);
+    }
+    return { cases, source: "cache", cacheMeta };
   }
 }
 
@@ -303,8 +359,13 @@ function buildDpaMatcher(): (enforcementCountry: string) => string | null {
 
 async function main() {
   const writeCache = process.argv.includes("--write-cache");
-  const cases = await loadCases(writeCache);
+  const allowCache = process.argv.includes("--allow-cache");
+  const { cases, source, cacheMeta } = await loadCases({ writeCache, allowCache });
   const rows = cases.map(etCaseToRow);
+
+  if (source === "cache") {
+    console.error("WARNING: enforcement.db built from stale vendored data — not suitable for release");
+  }
 
   // Load manual overrides (etid → company_slug, or etid → null to reject a false positive)
   const overridesRaw = existsSync(OVERRIDES_PATH)
@@ -436,6 +497,7 @@ async function main() {
 
   const stored = matchedExact + matchedPrefix + matchedName + matchedOverride;
   console.log(`\nWrote ${OUT_PATH}`);
+  console.log(`Data source:      ${source}${cacheMeta ? ` (cached ${cacheMeta.fetchedAt})` : ""}`);
   console.log(`Source records:   ${rows.length}`);
   console.log(`Stored (matched): ${stored}`);
   console.log(`  exact slug:     ${matchedExact}  (high confidence)`);
