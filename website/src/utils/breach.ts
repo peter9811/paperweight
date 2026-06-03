@@ -230,9 +230,13 @@ function resolveDpaName(breach: BreachRecord): string | undefined {
 /**
  * Ranks other breaches by how related they are to `slug`, to build an internal
  * link network between breach pages. Signals, strongest first:
- *   +5 same attacker (attribution)  · +4 same data protection authority
- *   +3 shared category              · +1 per shared data class (max +3)
+ *   +7 shared category (same sector) · +5 same attacker (attribution)
+ *   +4 same data protection authority · +1 per shared data class (max +3)
  *   +1 breaches within ~90 days of each other
+ * Sector is the dominant signal: for a reader, "other breaches in this industry"
+ * is the most useful relation, so a same-sector breach outranks a same-attacker
+ * breach from an unrelated sector (e.g. a telco breach surfaces other telcos
+ * before a clothing-retail breach that happens to share the same attacker).
  * Sorted by score, then recency. Falls back to most-recent if nothing scores,
  * so every page links to at least `limit` others.
  */
@@ -256,8 +260,8 @@ export function getRelatedBreaches(
       if (target.attribution && breach.attribution === target.attribution) {
         score += 5;
       }
+      if (breach.categories.some((c) => targetCategories.has(c))) score += 7;
       if (targetDpa && resolveDpaName(breach) === targetDpa) score += 4;
-      if (breach.categories.some((c) => targetCategories.has(c))) score += 3;
       const shared = breach.data_classes.filter((d) =>
         targetClasses.has(d),
       ).length;

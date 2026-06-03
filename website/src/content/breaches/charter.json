@@ -1,0 +1,49 @@
+{
+  "slug": "charter",
+  "generated_at": "2026-06-03T09:42:25.922Z",
+  "breach": {
+    "slug": "charter",
+    "company_name": "Charter Communications",
+    "runs": [
+      "Spectrum"
+    ],
+    "categories": [
+      "communication"
+    ],
+    "web": "https://www.charter.com",
+    "name": "Charter",
+    "title": "Charter",
+    "domain": "charter.com",
+    "breach_date": "2026-05-23",
+    "added_date": "2026-05-28T20:00:34Z",
+    "modified_date": "2026-05-28T20:01:50Z",
+    "pwn_count": 4851517,
+    "description": "In May 2026, the telecommunications company <a href=\"https://www.bleepingcomputer.com/news/security/charter-confirms-data-breach-after-shinyhunters-extortion-threat/\" target=\"_blank\" rel=\"noopener\">Charter Communications (the parent company behind the consumer broadband and cable brand Spectrum) was named by the ShinyHunters group in a \"pay or leak\" extortion campaign</a>. The group later published the data, which exposed 4.9M unique email addresses along with names, phone numbers and physical addresses. A subset of approximately 85k records originating from an internal employee directory also included job titles. Charter confirmed the incident, but stated that no sensitive personal information or customer proprietary network information (CPNI) was exfiltrated.",
+    "attribution": "ShinyHunters",
+    "logo_path": "https://logos.haveibeenpwned.com/Charter.png",
+    "data_classes": [
+      "Email addresses",
+      "Job titles",
+      "Names",
+      "Phone numbers",
+      "Physical addresses"
+    ],
+    "is_verified": true,
+    "is_sensitive": false
+  },
+  "enforcement": {
+    "records": [],
+    "total_fines": 0
+  },
+  "content": {
+    "aboutCompany": "Charter Communications is one of America’s largest telecommunications companies, operating the consumer broadband and cable brand Spectrum. It provides services across the United States.",
+    "keyTakeaways": [
+      "In May 2026, 4.9 million records from Charter Communications were exposed, including email addresses, names, phone numbers, physical addresses, and some job titles.",
+      "This incident is part of a pattern of large-scale data breaches affecting the telecommunications sector.",
+      "Affected individuals should be vigilant against phishing attempts and unsolicited communications, as their personal information is now publicly available."
+    ],
+    "incidentAndExposure": "In May 2026, the ShinyHunters group published data stolen from Charter Communications, affecting 4.9 million accounts. The exposed data included email addresses, names, phone numbers, and physical addresses. Additionally, approximately 85,000 records, originating from an internal employee directory, also contained job titles. Charter Communications has publicly acknowledged the incident, confirming a data breach occurred. However, the company stated that no sensitive personal information or customer proprietary network information (CPNI) was exfiltrated.",
+    "timelineAndCause": "The data breach occurred on or around April 1, 2026, and was first made public on May 27, 2026, with disclosure on May 28, 2026. The ShinyHunters extortion group was responsible for the incident. They gained access through a voice phishing (vishing) scam, obtaining a Microsoft Entra account belonging to an employee. This account was then used to access Charter's systems.",
+    "nextSteps": "If you are a Charter Communications customer, be aware that your email address, name, phone number, and physical address may have been exposed. You should be highly cautious of any unsolicited emails, phone calls, or mail, as these could be phishing attempts or social engineering scams. Do not click on suspicious links or provide personal information to unverified sources. Consider changing your passwords for online accounts, especially if you used similar credentials across multiple services. Monitor your accounts for any unusual activity and report anything suspicious to Charter Communications or relevant authorities."
+  }
+}

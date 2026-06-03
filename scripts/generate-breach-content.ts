@@ -388,6 +388,20 @@ async function main(): Promise<void> {
     );
   }
 
+  // HIBP sometimes leaves `Attribution` null for breaches with a publicly named
+  // attacker. Let a manually-authored `breach.attribution` in the existing JSON
+  // override a null from breaches.db, so it reaches the LLM + context signals and
+  // survives regeneration (same intent as preserving logoUrl/source below).
+  if (!breachFields.attribution && existsSync(outputPath)) {
+    const prev = JSON.parse(readFileSync(outputPath, "utf-8")) as {
+      breach?: { attribution?: string };
+    };
+    if (prev.breach?.attribution) {
+      breachFields.attribution = prev.breach.attribution;
+      console.info(`[breach] attribution overridden from existing JSON: ${prev.breach.attribution}`);
+    }
+  }
+
   // --- Context signals from local breaches.db ---
   const signals = fetchContextSignals(
     breachesDb,

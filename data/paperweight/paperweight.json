@@ -906,5 +906,23 @@
     "comments": [
       "Carnival Corporation umbrella covers Carnival Cruise Line, Holland America, Princess, Cunard, Seabourn, Costa, P&O and AIDA. Holland America publishes its own privacy contact at Privacy@hollandamerica.com for Mariner Society / HAL guests. EEA/UK customers can use Privacy@CarnivalUKGroup.com (Carnival UK Office, 100 Harbour Parade, Southampton SO15 1ST). DSAR webform: https://dsrguest-privacy.carnival.com/PrivacyRequest/."
     ]
+  },
+  {
+    "slug": "charter",
+    "relevant-countries": [
+      "us"
+    ],
+    "name": "Charter Communications",
+    "runs": [
+      "Spectrum"
+    ],
+    "categories": [
+      "communication"
+    ],
+    "web": "https://www.charter.com",
+    "quality": "tested",
+    "comments": [
+      "US telecommunications company; sells consumer broadband, TV and mobile under the Spectrum brand (spectrum.com). HQ: 400 Washington Blvd, Stamford, CT 06902."
+    ]
   }
 ]
