@@ -164,6 +164,7 @@ export function saveCredentials(creds: StoredCredentials, emailOverride?: string
 
 export function loadCredentials(emailOverride?: string): StoredCredentials | undefined {
   if (_preloaded !== undefined) return _preloaded ?? undefined;
+  if (!emailOverride && !_stagingMode && !getActiveEmail()) return undefined;
 
   // Main thread path — use safeStorage
   // eslint-disable-next-line @typescript-eslint/no-require-imports
