@@ -1,16 +1,16 @@
-import { getActiveEmail, loadCredentials } from "../credentials";
 import { ipcMain, shell } from "electron";
 import { IPC } from "@shared/ipc";
 import { isLicenseKey, isString } from "@shared/validation";
 import { activateLicense, getLicenseStatus, deleteLicense, applyAutoLaunch } from "../services/settings";
 import { getSetting, saveSetting } from "../services/settings";
 import { getGlobalSetting, saveGlobalSetting } from "../services/globalSettings";
+import { loadCredentials, getActiveEmail } from "../credentials";
 import { dataLog } from "../utils/log";
 
 function getSettings() {
-  const creds = loadCredentials();
-  const activeEmail = getActiveEmail();
-  const registered = activeEmail ? !!getSetting("registeredAt") : false;
+  const hasAccount = !!getActiveEmail();
+  const creds = hasAccount ? loadCredentials() : undefined;
+  const registered = hasAccount ? !!getSetting("registeredAt") : false;
   const autoLaunchVal = getGlobalSetting("autoLaunch");
   const launchMinimizedVal = getGlobalSetting("launchMinimized");
   const colorTheme = getGlobalSetting("colorTheme");
@@ -18,7 +18,7 @@ function getSettings() {
     providerType: creds?.providerType || "none",
     autoLaunch: autoLaunchVal !== undefined ? autoLaunchVal : registered,
     launchMinimized: launchMinimizedVal !== undefined ? launchMinimizedVal : registered,
-    userName: activeEmail ? (getSetting("userName") ?? "") : "",
+    userName: hasAccount ? (getSetting("userName") ?? "") : "",
     colorTheme: colorTheme === "silk" ? "silk" : "dim",
   };
 }
