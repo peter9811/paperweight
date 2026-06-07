@@ -186,6 +186,7 @@ export function loadCredentials(emailOverride?: string): StoredCredentials | und
 }
 
 export function deleteCredentials(emailOverride?: string) {
+  if (!emailOverride && !_stagingMode && !getActiveEmail()) return undefined;
   const path = getCredentialsPath(emailOverride);
   if (existsSync(path)) {
     unlinkSync(path);
